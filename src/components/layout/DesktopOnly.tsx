@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { MonitorX } from 'lucide-react';
 
-const MIN_WIDTH = 1024;
+const MIN_WIDTH = 800;
 
 export function DesktopOnly({ children }: { children: React.ReactNode }) {
   const [width, setWidth] = useState(window.innerWidth);
@@ -19,8 +19,8 @@ export function DesktopOnly({ children }: { children: React.ReactNode }) {
         <MonitorX className="w-12 h-12 mb-4 text-muted-foreground" />
         <h1 className="text-xl font-semibold">Desktop Only</h1>
         <p className="text-muted-foreground mt-2">
-          This app is not available on mobile devices or small screens. Please
-          open it on a desktop.
+          This web app is not available on mobile devices or small screens.
+          Please open it on a desktop.
         </p>
       </div>
     );
