@@ -1,3 +1,5 @@
+import { VideoLayer } from './VideoLayer';
+
 export const Viewport = () => {
   const sectionHeights = {
     header: '1.25rem',
@@ -15,10 +17,8 @@ export const Viewport = () => {
         </span>
       </header>
 
-      <main className="flex-1 border overflow-hidden">
-        <>
-          <></>
-        </>
+      <main className="flex-1 border overflow-hidden flex justify-center items-center bg-black">
+        <VideoLayer />
       </main>
 
       <section
