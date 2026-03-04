@@ -6,7 +6,7 @@ import { IconDimensions } from '@tabler/icons-react';
 export const Viewport = () => {
   const sectionHeights = {
     header: '1.25rem',
-    controlSection: '7.25rem',
+    controlSection: '5rem',
   };
 
   return (
