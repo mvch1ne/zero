@@ -75,7 +75,13 @@ export const Viewport = () => {
     [fps],
   );
 
-  const getCurrentTime = useCallback(() => getVideoTime.current(), []);
+  const handleVideoReady = useCallback(
+    (seek: (time: number) => void, getTime: () => number) => {
+      seekVideo.current = seek;
+      getVideoTime.current = getTime;
+    },
+    [],
+  );
 
   const handleUploadClick = () => fileInputRef.current?.click();
 
@@ -149,10 +155,7 @@ export const Viewport = () => {
               volume={volume}
               isMuted={isMuted}
               onTimeUpdate={setCurrentTime}
-              onVideoReady={(seek, getTime) => {
-                seekVideo.current = seek;
-                getVideoTime.current = getTime;
-              }}
+              onVideoReady={handleVideoReady}
             />
             {/* Layer 1: Pose overlay canvas — future */}
             {/* Layer 2: 3D sync overlay — future */}
@@ -208,7 +211,6 @@ export const Viewport = () => {
           isMuted={isMuted}
           setIsMuted={setIsMuted}
           onSeekToFrame={handleSeekToFrame}
-          getCurrentTime={getCurrentTime}
           disabled={!videoMeta}
         />
       </div>

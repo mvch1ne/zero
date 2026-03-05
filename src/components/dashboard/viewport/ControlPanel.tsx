@@ -39,7 +39,6 @@ interface ControlPanelProps {
   isMuted: boolean;
   setIsMuted: (v: boolean) => void;
   onSeekToFrame: (frame: number) => void;
-  getCurrentTime: () => number;
   disabled?: boolean;
 }
 
@@ -108,7 +107,6 @@ export function ControlPanel({
   isMuted,
   setIsMuted,
   onSeekToFrame,
-  getCurrentTime,
   disabled = false,
 }: ControlPanelProps) {
   const effectiveFps = (fps || 30) * playbackRate;
@@ -294,7 +292,7 @@ export function ControlPanel({
               value={String(playbackRate)}
               onValueChange={(v) => setPlaybackRate(Number(v))}
             >
-              <SelectTrigger className="h-7 w-24 text-xs px-2 bg-zinc-50 border-zinc-400 text-zinc-700 dark:text-zinc-300 hover:border-zinc-500 dark:bg-zinc-950 dark:border-zinc-600 dark:hover:border-zinc-500 cursor-pointer">
+              <SelectTrigger className="h-7 text-xs px-2 bg-zinc-50 border-zinc-400 text-zinc-700 dark:text-zinc-300 hover:border-zinc-500 dark:bg-zinc-950 dark:border-zinc-600 dark:hover:border-zinc-500 cursor-pointer">
                 <Gauge size={12} className="shrink-0" />
                 <SelectValue />
               </SelectTrigger>

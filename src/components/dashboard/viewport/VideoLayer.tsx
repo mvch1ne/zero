@@ -35,7 +35,7 @@ export const VideoLayer = ({
       },
       () => video.currentTime,
     );
-  }, []);
+  }, [onVideoReady]);
 
   // rAF loop drives onTimeUpdate during playback
   useEffect(() => {
@@ -65,7 +65,7 @@ export const VideoLayer = ({
         rafRef.current = null;
       }
     };
-  }, [isPlaying]);
+  }, [isPlaying, onTimeUpdate]);
 
   // Sync playback rate
   useEffect(() => {
