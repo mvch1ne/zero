@@ -215,9 +215,11 @@ export function ControlPanel() {
 
           {/* Timecode readouts */}
           <div className="ReadoutsRow flex justify-between items-center px-4 pt-2 pb-1">
+            {/* Could add padding to the front of the current frame number */}
+            {/* currentFrame.toString().padStart(4, '0') */}
             <Readout
               label="Frame"
-              value={`${currentFrame.toString().padStart(4, '0')} / ${(TOTAL_FRAMES - 1).toString()}`}
+              value={`${currentFrame.toString()} / ${(TOTAL_FRAMES - 1).toString()}`}
             />
             <Readout label="Timecode" value={frameToTimecode(currentFrame)} />
             <Readout
