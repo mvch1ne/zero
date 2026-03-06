@@ -2,7 +2,7 @@
 
 TODO
 
-- Switched to Movenet. Slightly more reliable than MediaPipe but still wildly inaccurate. Need to try something more accurate. If running a backend is the cost then so be it.
+- Switched to Movenet. Slightly more reliable than MediaPipe but still wildly inaccurate. Need to try something more accurate. If running a backend with Python is the cost then so be it. RTMPose or MMPose. I think they even have 3D versions? Could use that straight for the ThreeJS?
 - Work on the telemetry section
 
 ## Backend
