@@ -5,8 +5,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { LANDMARKS, REGION_COLORS } from './PoseEngine/poseConfig';
-import type { LandmarkDef } from './PoseEngine/poseConfig';
+import { LANDMARKS, REGION_COLORS } from './poseConfig';
+import type { LandmarkDef } from './poseConfig';
 
 interface Props {
   visibilityMap: Record<number, boolean>;
