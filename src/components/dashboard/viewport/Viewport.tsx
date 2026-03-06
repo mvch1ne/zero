@@ -16,7 +16,7 @@ import type { LandmarkDef } from './poseConfig';
 import { TrimCropPanel } from './TrimCropPanel';
 import { CropOverlay } from './CropOverlay';
 import { useExport } from './useExport';
-import { hasRVFC, type VideoElementWithRVFC } from './videoUtils';
+import { probeVideoFps } from './probeVideoFps';
 import type { CropRect, TrimPoints } from './TrimCropPanel';
 
 interface VideoMeta {
@@ -226,47 +226,10 @@ export const Viewport = () => {
       tmp.preload = 'auto';
 
       tmp.onloadedmetadata = async () => {
-        // ── Detect real FPS via requestVideoFrameCallback ──────────────────
-        let detectedFps = 30;
-        if (hasRVFC(tmp)) {
-          detectedFps = await new Promise<number>((resolve) => {
-            const PROBE_DURATION = 1.0;
-            let frameCount = 0;
-            let startTime: number | null = null;
+        // Read fps from the file via ffprobe (avg_frame_rate fraction).
+        // This is the only reliable source — rVFC-based counting is inaccurate.
+        const fps = await probeVideoFps(src);
 
-            const onFrame = (_now: number, meta: { mediaTime: number }) => {
-              if (startTime === null) startTime = meta.mediaTime;
-              frameCount++;
-              const elapsed = meta.mediaTime - startTime;
-              if (elapsed >= PROBE_DURATION || tmp.ended) {
-                tmp.pause();
-                resolve(elapsed > 0 ? Math.round(frameCount / elapsed) : 30);
-              } else {
-                (tmp as VideoElementWithRVFC).requestVideoFrameCallback(
-                  onFrame,
-                );
-              }
-            };
-
-            tmp.currentTime = 0;
-            tmp.playbackRate = 1;
-            tmp
-              .play()
-              .then(() => {
-                (tmp as VideoElementWithRVFC).requestVideoFrameCallback(
-                  onFrame,
-                );
-              })
-              .catch(() => resolve(30));
-
-            setTimeout(() => {
-              tmp.pause();
-              resolve(30);
-            }, 3000);
-          });
-        }
-
-        const fps = detectedFps;
         setVideoMeta({
           src,
           fps,

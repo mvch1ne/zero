@@ -28,12 +28,7 @@ export interface TrimPoints {
 }
 
 type ExportMode = 'replace' | 'download';
-export type ExportStatus =
-  | 'idle'
-  | 'recording'
-  | 'processing'
-  | 'done'
-  | 'error';
+export type ExportStatus = 'idle' | 'loading' | 'running' | 'done' | 'error';
 
 interface Props {
   duration: number;
@@ -99,8 +94,7 @@ export const TrimCropPanel = ({
   const cropH = cropRect
     ? Math.round(cropRect.h * videoMeta.height)
     : videoMeta.height;
-  const isExporting =
-    exportStatus === 'recording' || exportStatus === 'processing';
+  const isExporting = exportStatus === 'loading' || exportStatus === 'running';
   const canExport = trimDuration > 0 && !isExporting;
 
   const xToTime = useCallback(
@@ -398,9 +392,9 @@ export const TrimCropPanel = ({
                   />
                 </div>
                 <span className="text-[8px] text-zinc-500 tabular-nums">
-                  {exportStatus === 'recording'
-                    ? `Encoding… ${Math.round(exportProgress * 100)}%`
-                    : 'Finalising…'}
+                  {exportStatus === 'loading'
+                    ? 'Loading ffmpeg…'
+                    : `Encoding… ${Math.round(exportProgress * 100)}%`}
                 </span>
               </div>
             )}

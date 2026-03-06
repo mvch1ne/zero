@@ -1,14 +1,9 @@
 import { useRef, useState, useCallback } from 'react';
+import { fetchFile } from '@ffmpeg/util';
+import { getFFmpeg } from './useFFmpeg';
 import type { CropRect, TrimPoints } from './TrimCropPanel';
 
-import { hasRVFC, type VideoElementWithRVFC } from './videoUtils';
-
-export type ExportStatus =
-  | 'idle'
-  | 'recording'
-  | 'processing'
-  | 'done'
-  | 'error';
+export type ExportStatus = 'idle' | 'loading' | 'running' | 'done' | 'error';
 
 interface UseExportOptions {
   videoElRef: React.RefObject<HTMLVideoElement | null>;
@@ -32,38 +27,12 @@ interface UseExportReturn {
   ) => void;
 }
 
-function pickMime(): string {
-  if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9'))
-    return 'video/webm;codecs=vp9';
-  if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8'))
-    return 'video/webm;codecs=vp8';
-  return 'video/webm';
-}
-
-function waitForFrame(videoEl: HTMLVideoElement): Promise<void> {
-  return new Promise((res) => {
-    if (hasRVFC(videoEl)) {
-      videoEl.requestVideoFrameCallback(() => res());
-    } else {
-      requestAnimationFrame(() => requestAnimationFrame(() => res()));
-    }
-  });
-}
-
-// Stop recorder and wait for onstop, with a hard timeout fallback
-function stopRecorder(recorder: MediaRecorder): Promise<void> {
-  return new Promise((res) => {
-    const timeout = setTimeout(res, 3000); // never hang forever
-    recorder.onstop = () => {
-      clearTimeout(timeout);
-      res();
-    };
-    try {
-      recorder.stop();
-    } catch {
-      res();
-    }
-  });
+// Format seconds as HH:MM:SS.mmm for ffmpeg -ss / -to
+function toTimecode(secs: number): string {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${s.toFixed(3).padStart(6, '0')}`;
 }
 
 export function useExport({
@@ -80,7 +49,6 @@ export function useExport({
   const [exportProgress, setExportProgress] = useState(0);
   const [lastExportUrl, setLastExportUrl] = useState<string | null>(null);
   const [lastExportTitle, setLastExportTitle] = useState<string | null>(null);
-  const abortRef = useRef(false);
 
   const optsRef = useRef({
     videoWidth,
@@ -105,92 +73,81 @@ export function useExport({
       onReplace: (url: string, w: number, h: number) => void,
     ) => {
       const videoEl = videoElRef.current;
-      const { videoWidth, videoHeight, fps, trimPoints, cropRect, title } =
+      const { videoWidth, videoHeight, cropRect, trimPoints, title } =
         optsRef.current;
-
       if (!videoEl || videoWidth === 0 || videoHeight === 0) return;
 
       const trimDuration = trimPoints.outPoint - trimPoints.inPoint;
       if (trimDuration <= 0) return;
 
-      abortRef.current = false;
-      exportingRef.current = true; // suppress loading indicator
-      setExportStatus('recording');
+      exportingRef.current = true;
+      setExportStatus('loading');
       setExportProgress(0);
 
-      videoEl.pause();
-
-      const srcX = cropRect ? cropRect.x * videoWidth : 0;
-      const srcY = cropRect ? cropRect.y * videoHeight : 0;
-      const srcW = cropRect ? cropRect.w * videoWidth : videoWidth;
-      const srcH = cropRect ? cropRect.h * videoHeight : videoHeight;
-      const outW = Math.max(2, Math.round(srcW));
-      const outH = Math.max(2, Math.round(srcH));
-
-      const canvas = document.createElement('canvas');
-      canvas.width = outW;
-      canvas.height = outH;
-      const ctx = canvas.getContext('2d')!;
-
-      const mimeType = pickMime();
-
-      // captureStream(0) = fully manual frame timing
-      const stream = canvas.captureStream(0);
-      const track = stream.getVideoTracks()[0] as MediaStreamTrack & {
-        requestFrame?: () => void;
-      };
-      const recorder = new MediaRecorder(stream, {
-        mimeType,
-        videoBitsPerSecond: 10_000_000,
-      });
-      const chunks: Blob[] = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
-
-      // Collect data frequently so buffer doesn't grow unbounded
-      recorder.start(50);
-
-      const frameDuration = 1 / fps;
-      const totalFrames = Math.round(trimDuration * fps);
-
-      // Explicit frame list — always ends exactly at outPoint
-      const frameTimestamps: number[] = [];
-      for (let i = 0; i <= totalFrames; i++) {
-        frameTimestamps.push(
-          Math.min(trimPoints.inPoint + i * frameDuration, trimPoints.outPoint),
-        );
-      }
-      if (frameTimestamps[frameTimestamps.length - 1] < trimPoints.outPoint) {
-        frameTimestamps.push(trimPoints.outPoint);
-      }
-
-      for (let i = 0; i < frameTimestamps.length; i++) {
-        if (abortRef.current) break;
-
-        const frameReady = waitForFrame(videoEl);
-        videoEl.currentTime = frameTimestamps[i];
-        await frameReady;
-
-        ctx.clearRect(0, 0, outW, outH);
-        ctx.drawImage(videoEl, srcX, srcY, srcW, srcH, 0, 0, outW, outH);
-        track.requestFrame?.();
-
-        // Only reach 99% inside the loop — 100% set after recorder fully stops
-        setExportProgress(Math.min(0.98, i / (frameTimestamps.length - 1)));
-      }
-
-      // Flush remaining buffered data then stop
-      recorder.requestData();
-      await new Promise<void>((res) => setTimeout(res, 150));
-      await stopRecorder(recorder);
-
-      setExportProgress(0.99);
-      setExportStatus('processing');
-
       try {
-        const blob = new Blob(chunks, { type: mimeType });
+        // Load ffmpeg (cached after first call)
+        const ffmpeg = await getFFmpeg();
+
+        setExportStatus('running');
+
+        // Wire up progress — ffmpeg emits 0-1 ratio
+        ffmpeg.on('progress', ({ progress }) => {
+          setExportProgress(Math.min(0.98, progress));
+        });
+
+        // Write the source video into ffmpeg's virtual FS
+        await ffmpeg.writeFile('input.mp4', await fetchFile(videoEl.src));
+
+        // Build filter: crop is in pixel coords
+        const cropX = cropRect ? Math.round(cropRect.x * videoWidth) : 0;
+        const cropY = cropRect ? Math.round(cropRect.y * videoHeight) : 0;
+        const cropW = cropRect
+          ? Math.round(cropRect.w * videoWidth)
+          : videoWidth;
+        const cropH = cropRect
+          ? Math.round(cropRect.h * videoHeight)
+          : videoHeight;
+
+        // Ensure even dimensions (required by libx264)
+        const outW = cropW % 2 === 0 ? cropW : cropW - 1;
+        const outH = cropH % 2 === 0 ? cropH : cropH - 1;
+
+        const vf = cropRect
+          ? `crop=${outW}:${outH}:${cropX}:${cropY}`
+          : undefined;
+
+        const args = [
+          '-ss',
+          toTimecode(trimPoints.inPoint),
+          '-to',
+          toTimecode(trimPoints.outPoint),
+          '-i',
+          'input.mp4',
+          ...(vf ? ['-vf', vf] : []),
+          '-c:v',
+          'libx264',
+          '-preset',
+          'fast',
+          '-crf',
+          '18',
+          '-c:a',
+          'aac',
+          '-b:a',
+          '192k',
+          '-movflags',
+          '+faststart',
+          'output.mp4',
+        ];
+
+        await ffmpeg.exec(args);
+
+        const data = await ffmpeg.readFile('output.mp4');
+        const blob = new Blob([data], { type: 'video/mp4' });
         const url = URL.createObjectURL(blob);
+
+        // Clean up virtual FS
+        await ffmpeg.deleteFile('input.mp4');
+        await ffmpeg.deleteFile('output.mp4');
 
         setLastExportUrl(url);
         setLastExportTitle(title);
@@ -198,7 +155,7 @@ export function useExport({
         if (mode === 'download') {
           const a = document.createElement('a');
           a.href = url;
-          a.download = `${title}_clip.webm`;
+          a.download = `${title}_clip.mp4`;
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
@@ -208,7 +165,8 @@ export function useExport({
 
         setExportStatus('done');
         setExportProgress(1);
-      } catch {
+      } catch (err) {
+        console.error('Export error', err);
         setExportStatus('error');
       } finally {
         exportingRef.current = false;
