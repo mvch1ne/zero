@@ -11,6 +11,8 @@ TODO
 
 ## Backend
 
+- Working decently and integrated into the frontend directory.
+
 -
 - Get the requirements necessary for the application. So that from the server, I can just install the requirements. Luckily its just RTMPose and FastAPI with their respective dependencies.
 - Deploy to Fly.io because free tier is more generous and doesn't hibernate? Regardless can write code to warm up the server
