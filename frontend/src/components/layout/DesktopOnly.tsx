@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { MonitorX } from 'lucide-react';
 
-const MIN_WIDTH = 800;
+const MIN_WIDTH = 750;
 
 export function DesktopOnly({ children }: { children: React.ReactNode }) {
   const [width, setWidth] = useState(window.innerWidth);
