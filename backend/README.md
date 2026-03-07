@@ -87,14 +87,6 @@ pip install -r requirements.txt
 - `opencv-python-headless`
 - `numpy`
 
-Raw Text:
-fastapi
-uvicorn[standard]
-python-multipart
-rtmlib
-opencv-python-headless
-numpy
-
 > **First run note:** rtmlib will download the RTMPose ONNX model weights automatically on the first inference call. This happens once and is cached locally.
 
 ---
