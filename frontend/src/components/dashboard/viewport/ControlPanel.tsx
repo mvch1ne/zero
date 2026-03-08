@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState, useRef } from 'react';
+import { useEffect, useCallback } from 'react';
 import {
   Play,
   Pause,
@@ -140,165 +140,6 @@ function Readout({ label, value }: { label: string; value: string }) {
   );
 }
 
-function TimeRuler({
-  totalFrames,
-  fps,
-  frameToTimecode,
-  onSeekToFrame,
-}: {
-  totalFrames: number;
-  fps: number;
-  frameToTimecode: (f: number) => string;
-  onSeekToFrame: (f: number) => void;
-}) {
-  const [markerA, setMarkerA] = useState<number | null>(null);
-  const [markerB, setMarkerB] = useState<number | null>(null);
-  const dragging = useRef<'a' | 'b' | null>(null);
-  const railRef = useRef<HTMLDivElement>(null);
-
-  const posToFrame = useCallback(
-    (clientX: number): number => {
-      const rail = railRef.current;
-      if (!rail || totalFrames < 2) return 0;
-      const { left, width } = rail.getBoundingClientRect();
-      const ratio = Math.max(0, Math.min(1, (clientX - left) / width));
-      return Math.round(ratio * (totalFrames - 1));
-    },
-    [totalFrames],
-  );
-
-  const pct = useCallback(
-    (frame: number) =>
-      totalFrames > 1 ? (frame / (totalFrames - 1)) * 100 : 0,
-    [totalFrames],
-  );
-
-  const handleRailClick = useCallback(
-    (e: React.MouseEvent) => {
-      if (dragging.current) return;
-      const f = posToFrame(e.clientX);
-      if (markerA === null) {
-        setMarkerA(f);
-        onSeekToFrame(f);
-      } else if (markerB === null) {
-        setMarkerB(f);
-        onSeekToFrame(f);
-      }
-    },
-    [markerA, markerB, posToFrame, onSeekToFrame],
-  );
-
-  const startDrag = useCallback((marker: 'a' | 'b', e: React.PointerEvent) => {
-    e.stopPropagation();
-    dragging.current = marker;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  }, []);
-
-  const onPointerMove = useCallback(
-    (e: React.PointerEvent) => {
-      if (!dragging.current) return;
-      const f = posToFrame(e.clientX);
-      if (dragging.current === 'a') {
-        setMarkerA(f);
-        onSeekToFrame(f);
-      } else {
-        setMarkerB(f);
-        onSeekToFrame(f);
-      }
-    },
-    [posToFrame, onSeekToFrame],
-  );
-
-  const onPointerUp = useCallback(() => {
-    dragging.current = null;
-  }, []);
-
-  const frameDelta =
-    markerA !== null && markerB !== null ? Math.abs(markerB - markerA) : null;
-  const timeDelta = frameDelta !== null ? frameDelta / fps : null;
-  const lo =
-    markerA !== null && markerB !== null
-      ? Math.min(pct(markerA), pct(markerB))
-      : null;
-  const hi =
-    markerA !== null && markerB !== null
-      ? Math.max(pct(markerA), pct(markerB))
-      : null;
-
-  if (totalFrames < 2) return null;
-
-  return (
-    <div className="px-4 pb-1 pt-0.5 flex flex-col gap-1">
-      <div
-        ref={railRef}
-        className="relative h-3 bg-zinc-200 dark:bg-zinc-800 rounded-full cursor-crosshair select-none"
-        onClick={handleRailClick}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-      >
-        {lo !== null && hi !== null && (
-          <div
-            className="absolute top-0 h-full bg-amber-400/30 rounded-full pointer-events-none"
-            style={{ left: `${lo}%`, width: `${hi - lo}%` }}
-          />
-        )}
-        {markerA !== null && (
-          <div
-            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-amber-400 border-2 border-zinc-950 cursor-ew-resize z-10 touch-none"
-            style={{ left: `${pct(markerA)}%` }}
-            onPointerDown={(e) => startDrag('a', e)}
-          >
-            <span className="absolute top-4 left-1/2 -translate-x-1/2 text-[9px] text-amber-400 font-mono select-none pointer-events-none">
-              A
-            </span>
-          </div>
-        )}
-        {markerB !== null && (
-          <div
-            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-sky-400 border-2 border-zinc-950 cursor-ew-resize z-10 touch-none"
-            style={{ left: `${pct(markerB)}%` }}
-            onPointerDown={(e) => startDrag('b', e)}
-          >
-            <span className="absolute top-4 left-1/2 -translate-x-1/2 text-[9px] text-sky-400 font-mono select-none pointer-events-none">
-              B
-            </span>
-          </div>
-        )}
-      </div>
-      <div className="flex items-center gap-3 h-4">
-        <span className="text-[10px] uppercase tracking-widest text-zinc-500 shrink-0 font-mono">
-          Δt
-        </span>
-        {timeDelta !== null ? (
-          <>
-            <span className="text-[11px] font-mono text-amber-400 tabular-nums">
-              {frameToTimecode(frameDelta!)}
-            </span>
-            <span className="text-[10px] font-mono text-zinc-500 tabular-nums">
-              {timeDelta.toFixed(4)}s
-            </span>
-            <span className="text-[10px] font-mono text-zinc-500 tabular-nums">
-              {frameDelta} fr
-            </span>
-            <button
-              onClick={() => {
-                setMarkerA(null);
-                setMarkerB(null);
-              }}
-              className="ml-auto text-[10px] uppercase tracking-widest text-zinc-600 hover:text-zinc-300 transition-colors cursor-pointer"
-            >
-              Clear
-            </button>
-          </>
-        ) : (
-          <span className="text-[10px] text-zinc-600 italic font-mono">
-            {markerA === null ? 'click to set A' : 'click to set B'}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
 
 export function ControlPanel({
   currentFrame,
@@ -472,35 +313,47 @@ export function ControlPanel({
             </div>
           </div>
 
-          {/* Sprint start row — proposed + confirm */}
-          {(startFrame !== null || proposedStartFrame != null) && (
-            <div className="px-4 pb-0.5 flex items-center gap-2">
-              <span className="text-[9px] uppercase tracking-widest text-zinc-500 shrink-0">Sprint Start</span>
-              {startFrame !== null ? (
-                <>
-                  <span className="text-[9px] font-mono text-emerald-400 tabular-nums">Frame {startFrame} confirmed</span>
-                  <button onClick={onClearStartFrame} className="text-[9px] uppercase tracking-widest text-red-500/60 hover:text-red-400 cursor-pointer ml-1">Clear</button>
-                </>
-              ) : proposedStartFrame != null ? (
-                <>
-                  <span className="text-[9px] font-mono text-amber-400 tabular-nums">Frame {proposedStartFrame} proposed</span>
-                  <button
-                    onClick={onSetStartFrame}
-                    className="text-[9px] uppercase tracking-widest text-emerald-400 hover:text-emerald-300 cursor-pointer border border-emerald-500/40 px-1 rounded-sm"
-                  >
-                    Confirm
-                  </button>
-                </>
-              ) : null}
-            </div>
-          )}
-
-          <TimeRuler
-            totalFrames={totalFrames}
-            fps={fps}
-            frameToTimecode={frameToTimecode}
-            onSeekToFrame={onSeekToFrame}
-          />
+          {/* Sprint start row — flag button always visible here, status inline */}
+          <div className="px-4 pb-0.5 flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={startFrame !== null ? onClearStartFrame : onSetStartFrame}
+                  className={`flex items-center justify-center w-6 h-6 rounded-sm border transition-all duration-100 shrink-0 cursor-pointer
+                    ${startFrame !== null
+                      ? 'bg-emerald-600/20 border-emerald-500/60 text-emerald-400'
+                      : 'border-zinc-400 text-zinc-500 dark:border-zinc-600 hover:border-zinc-500 hover:text-zinc-300'}`}
+                >
+                  <Flag size={12} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {startFrame !== null
+                  ? `Sprint start: frame ${startFrame} — click to clear`
+                  : proposedStartFrame != null
+                    ? `Override sprint start (proposed: ${proposedStartFrame})`
+                    : 'Set sprint start (current frame)'}
+              </TooltipContent>
+            </Tooltip>
+            {startFrame !== null ? (
+              <>
+                <span className="text-[9px] font-mono text-emerald-400 tabular-nums">Frame {startFrame} confirmed</span>
+                <button onClick={onClearStartFrame} className="text-[9px] uppercase tracking-widest text-red-500/60 hover:text-red-400 cursor-pointer ml-1">Clear</button>
+              </>
+            ) : proposedStartFrame != null ? (
+              <>
+                <span className="text-[9px] font-mono text-amber-400 tabular-nums">Frame {proposedStartFrame} proposed</span>
+                <button
+                  onClick={onSetStartFrame}
+                  className="text-[9px] uppercase tracking-widest text-emerald-400 hover:text-emerald-300 cursor-pointer border border-emerald-500/40 px-1 rounded-sm"
+                >
+                  Confirm
+                </button>
+              </>
+            ) : (
+              <span className="text-[9px] font-mono text-zinc-600 italic">Set sprint start frame</span>
+            )}
+          </div>
 
           {/* Readouts */}
           <div className="ReadoutsRow flex justify-between items-center px-4 pt-1 pb-0.5">
@@ -590,22 +443,6 @@ export function ControlPanel({
             </Select>
 
             <div className="h-6 w-px bg-zinc-300 dark:bg-zinc-600 mx-1" />
-
-            <IconBtn
-              onClick={
-                startFrame !== null ? onClearStartFrame : onSetStartFrame
-              }
-              tooltip={
-                startFrame !== null
-                  ? `Sprint start: frame ${startFrame} — click to clear`
-                  : proposedStartFrame != null
-                    ? `Override sprint start (proposed: ${proposedStartFrame})`
-                    : 'Set sprint start (current frame)'
-              }
-              active={startFrame !== null}
-            >
-              <Flag size={14} />
-            </IconBtn>
 
             <IconBtn
               onClick={onStartCalibration}

@@ -13,7 +13,7 @@ TODO
 
 - Work towards body view looking more like Three.js human model.
 - 3D mode is a must. Alternatives to Three.js? Just to make sure there isn't a simpler but more appropriate tool (or we can't build one quickly) before I go forward with it.
-- The 3D mode just be, of course, VIEW ONLY! So all calibration, measurement, etc should be turned off until we switch back to one of the other views.
+- The 3D mode just be, of course, VIEW ONLY! So all calibration, measurement, etc should be turned off until we switch back to one of the other views. We can pan, zoom, rotate, move around, etc but not changes.
 - When using the export option, let the draw box disappear after I close the panel.
 - When done, create desktop version (Electron.js?) so that I don't have to upload anything. Find a way to run the application on the desktop and run the Python server on the laptop as well. Will have to figure out how to manage both seamlessly (web sockets)?
 

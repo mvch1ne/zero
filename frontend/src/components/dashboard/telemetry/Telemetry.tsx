@@ -66,7 +66,7 @@ function SectionHead({ label, color }: { label: string; color: string }) {
         className="w-1.5 h-1.5 rounded-full shrink-0"
         style={{ background: color }}
       />
-      <span className="text-[9px] uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
+      <span className="text-xs uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
         {label}
       </span>
     </div>
@@ -87,18 +87,18 @@ function Stat({
 }) {
   return (
     <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800/60 flex flex-col gap-0.5">
-      <span className="text-[8px] uppercase tracking-widest text-zinc-500">
+      <span className="text-xs uppercase tracking-widest text-zinc-500">
         {label}
       </span>
       <div className="flex items-baseline gap-1">
-        <span className="text-sm font-mono text-sky-500 dark:text-sky-400 tabular-nums leading-none">
+        <span className="text-base font-mono text-sky-500 dark:text-sky-400 tabular-nums leading-none">
           {value}
         </span>
         {unit && (
-          <span className="text-[9px] font-mono text-zinc-500">{unit}</span>
+          <span className="text-xs font-mono text-zinc-500">{unit}</span>
         )}
       </div>
-      {dim && <span className="text-[8px] font-mono text-zinc-500">{dim}</span>}
+      {dim && <span className="text-xs font-mono text-zinc-500">{dim}</span>}
     </div>
   );
 }
@@ -124,18 +124,18 @@ function JointRow({
   return (
     <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800/60">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[9px] font-mono text-zinc-500">{label}</span>
+        <span className="text-xs font-mono text-zinc-500">{label}</span>
         <div className="flex gap-2 items-baseline">
           <span
-            className="text-[10px] font-mono tabular-nums font-medium"
+            className="text-xs font-mono tabular-nums font-medium"
             style={{ color }}
           >
             {series.angle[f]?.toFixed(1) ?? '—'}°
           </span>
-          <span className="text-[9px] font-mono tabular-nums text-zinc-500">
+          <span className="text-xs font-mono tabular-nums text-zinc-500">
             {series.velocity[f]?.toFixed(0) ?? '—'}°/s
           </span>
-          <span className="text-[8px] font-mono tabular-nums text-zinc-400">
+          <span className="text-xs font-mono tabular-nums text-zinc-400">
             {series.accel[f]?.toFixed(0) ?? '—'}°/s²
           </span>
         </div>
@@ -163,7 +163,7 @@ function ContactsTab({
 
   if (!contacts.length)
     return (
-      <p className="px-3 py-4 text-[9px] font-mono text-zinc-500 italic">
+      <p className="px-3 py-4 text-xs font-mono text-zinc-500 italic">
         No contacts detected.
       </p>
     );
@@ -188,7 +188,7 @@ function ContactsTab({
     <div>
       {/* Symmetry summary */}
       <SectionHead label="Symmetry" color="#38bdf8" />
-      <div className="grid grid-cols-3 text-[9px] font-mono">
+      <div className="grid grid-cols-3 text-xs font-mono">
         <div className="px-3 py-1.5 border-b border-r border-zinc-100 dark:border-zinc-800/60 text-zinc-500 uppercase tracking-wide" />
         <div
           className="px-3 py-1.5 border-b border-r border-zinc-100 dark:border-zinc-800/60 font-bold"
@@ -233,7 +233,7 @@ function ContactsTab({
       {/* Step-by-step table */}
       <SectionHead label="Per-step detail" color="#38bdf8" />
       <div className="overflow-x-auto">
-        <table className="w-full text-[8px] font-mono border-collapse">
+        <table className="w-full text-xs font-mono border-collapse">
           <thead>
             <tr className="border-b border-zinc-200 dark:border-zinc-800">
               {[
@@ -280,7 +280,7 @@ function ContactsTab({
                       <input
                         autoFocus
                         type="number"
-                        className="w-12 bg-zinc-800 text-zinc-200 text-[8px] font-mono px-1 rounded outline-none border border-violet-500/60"
+                        className="w-12 bg-zinc-800 text-zinc-200 text-xs font-mono px-1 rounded outline-none border border-violet-500/60"
                         value={editing.value}
                         onChange={(e) => setEditing({ ...editing, value: e.target.value })}
                         onBlur={() => {
@@ -309,7 +309,7 @@ function ContactsTab({
                       <input
                         autoFocus
                         type="number"
-                        className="w-12 bg-zinc-800 text-zinc-200 text-[8px] font-mono px-1 rounded outline-none border border-violet-500/60"
+                        className="w-12 bg-zinc-800 text-zinc-200 text-xs font-mono px-1 rounded outline-none border border-violet-500/60"
                         value={editing.value}
                         onChange={(e) => setEditing({ ...editing, value: e.target.value })}
                         onBlur={() => {
@@ -360,7 +360,7 @@ function ContactsTab({
                       {c.id && (
                         <button
                           onClick={() => onDelete(c.id!)}
-                          className="text-[9px] text-red-500/60 hover:text-red-400 transition-colors cursor-pointer leading-none"
+                          className="text-xs text-red-500/60 hover:text-red-400 transition-colors cursor-pointer leading-none"
                           title="Delete contact"
                         >
                           ×
@@ -465,8 +465,8 @@ function CoMTab({
       <SectionHead label="Displacement (m)" color={color} />
       <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800/60">
         <div className="flex justify-between mb-1">
-          <span className="text-[9px] font-mono text-zinc-500">From start line</span>
-          <span className="text-[9px] font-mono tabular-nums" style={{ color }}>
+          <span className="text-xs font-mono text-zinc-500">From start line</span>
+          <span className="text-xs font-mono tabular-nums" style={{ color }}>
             {relDisp(f).toFixed(2)} m
           </span>
         </div>
@@ -476,8 +476,8 @@ function CoMTab({
       <SectionHead label="Speed (m/s)" color={color} />
       <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800/60">
         <div className="flex justify-between mb-1">
-          <span className="text-[9px] font-mono text-zinc-500">{speedSubLabel}</span>
-          <span className="text-[9px] font-mono tabular-nums" style={{ color }}>{(gateSpeed[f] ?? 0).toFixed(2)} m/s</span>
+          <span className="text-xs font-mono text-zinc-500">{speedSubLabel}</span>
+          <span className="text-xs font-mono tabular-nums" style={{ color }}>{(gateSpeed[f] ?? 0).toFixed(2)} m/s</span>
         </div>
         <Sparkline data={spark(gateSpeed)} color={color} height={22} playheadPct={pct} />
       </div>
@@ -485,8 +485,8 @@ function CoMTab({
       <SectionHead label="Acceleration (m/s²)" color={color} />
       <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800/60">
         <div className="flex justify-between mb-1">
-          <span className="text-[9px] font-mono text-zinc-500">Δv/Δt</span>
-          <span className="text-[9px] font-mono tabular-nums" style={{ color }}>{(gateAccel[f] ?? 0).toFixed(2)} m/s²</span>
+          <span className="text-xs font-mono text-zinc-500">Δv/Δt</span>
+          <span className="text-xs font-mono tabular-nums" style={{ color }}>{(gateAccel[f] ?? 0).toFixed(2)} m/s²</span>
         </div>
         <Sparkline data={spark(gateAccel)} color={color} height={18} playheadPct={pct} />
       </div>
@@ -495,7 +495,7 @@ function CoMTab({
         <>
           <SectionHead label="Recorded Events" color={color} />
           <div className="overflow-x-auto">
-            <table className="w-full text-[8px] font-mono border-collapse">
+            <table className="w-full text-xs font-mono border-collapse">
               <thead>
                 <tr className="border-b border-zinc-200 dark:border-zinc-800">
                   {['#', 'Frame', 'Speed (m/s)', 'Accel (m/s²)', 'Disp (m)'].map((h) => (
@@ -530,8 +530,8 @@ function CoMTab({
       return (
         <div className="px-4 py-8 flex flex-col gap-2 items-center text-center">
           <div className="w-2 h-2 rounded-full bg-amber-400" />
-          <span className="text-[9px] uppercase tracking-widest text-amber-500">First movement required</span>
-          <span className="text-[9px] text-zinc-500 font-mono">Seek to the first movement frame and click the Flag button (or confirm the proposed frame)</span>
+          <span className="text-xs uppercase tracking-widest text-amber-500">First movement required</span>
+          <span className="text-xs text-zinc-500 font-mono">Seek to the first movement frame and click the Flag button (or confirm the proposed frame)</span>
         </div>
       );
     }
@@ -539,8 +539,8 @@ function CoMTab({
       return (
         <div className="px-4 py-8 flex flex-col gap-2 items-center text-center">
           <div className="w-2 h-2 rounded-full bg-cyan-400" />
-          <span className="text-[9px] uppercase tracking-widest text-cyan-500">Start line required</span>
-          <span className="text-[9px] text-zinc-500 font-mono">Use Annotate → Start to place the start line post</span>
+          <span className="text-xs uppercase tracking-widest text-cyan-500">Start line required</span>
+          <span className="text-xs text-zinc-500 font-mono">Use Annotate → Start to place the start line post</span>
         </div>
       );
     }
@@ -593,10 +593,10 @@ function CoMTab({
       <div>
         {/* RT controls */}
         <div className="px-3 py-1.5 border-b border-zinc-100 dark:border-zinc-800/60 flex items-center gap-2 flex-wrap">
-          <span className="text-[8px] uppercase tracking-widest text-zinc-500 shrink-0">Reaction time</span>
+          <span className="text-xs uppercase tracking-widest text-zinc-500 shrink-0">Reaction time</span>
           <button
             onClick={() => setReactionTimeEnabled(!reactionTimeEnabled)}
-            className={`text-[9px] font-mono px-1.5 py-0.5 rounded-sm border transition-colors cursor-pointer
+            className={`text-xs font-mono px-1.5 py-0.5 rounded-sm border transition-colors cursor-pointer
               ${reactionTimeEnabled ? 'border-violet-500/50 text-violet-400 bg-violet-500/10' : 'border-zinc-600 text-zinc-500'}`}
           >
             {reactionTimeEnabled ? 'ON' : 'OFF'}
@@ -607,14 +607,14 @@ function CoMTab({
                 type="number"
                 value={Math.round(reactionTime * 1000)}
                 onChange={(e) => setReactionTime(Math.max(0, Math.min(500, Number(e.target.value))) / 1000)}
-                className="w-12 text-[9px] font-mono bg-zinc-900 border border-zinc-700 rounded-sm px-1 py-0.5 text-violet-300 tabular-nums text-center"
+                className="w-12 text-xs font-mono bg-zinc-900 border border-zinc-700 rounded-sm px-1 py-0.5 text-violet-300 tabular-nums text-center"
                 min={0} max={500} step={10}
               />
-              <span className="text-[9px] text-zinc-500 font-mono">ms</span>
+              <span className="text-xs text-zinc-500 font-mono">ms</span>
             </>
           )}
           <div className="ml-auto flex items-center gap-1.5">
-            <span className="text-[9px] font-mono text-zinc-500">Crossed fr</span>
+            <span className="text-xs font-mono text-zinc-500">Crossed fr</span>
             <input
               type="number"
               min={0}
@@ -625,7 +625,7 @@ function CoMTab({
                 const v = parseInt(e.target.value, 10);
                 setStaticCrossingOverride(!isNaN(v) && v >= 0 ? v : null);
               }}
-              className={`w-14 text-[9px] font-mono rounded-sm px-1 py-0.5 tabular-nums text-center outline-none
+              className={`w-14 text-xs font-mono rounded-sm px-1 py-0.5 tabular-nums text-center outline-none
                 ${staticCrossingOverride !== null
                   ? 'bg-violet-950/60 border border-violet-500/60 text-violet-300'
                   : 'bg-zinc-900 border border-zinc-700 text-cyan-400'}`}
@@ -634,7 +634,7 @@ function CoMTab({
               <button
                 onClick={() => setStaticCrossingOverride(null)}
                 title="Reset to auto-detected"
-                className="text-[10px] text-zinc-500 hover:text-cyan-400 transition-colors cursor-pointer leading-none"
+                className="text-xs text-zinc-500 hover:text-cyan-400 transition-colors cursor-pointer leading-none"
               >↺</button>
             )}
           </div>
@@ -651,8 +651,8 @@ function CoMTab({
       return (
         <div className="px-4 py-8 flex flex-col gap-2 items-center text-center">
           <div className="w-2 h-2 rounded-full bg-cyan-400" />
-          <span className="text-[9px] uppercase tracking-widest text-cyan-500">Fly zone entry required</span>
-          <span className="text-[9px] text-zinc-500 font-mono">Use Annotate → Start to mark the entry line</span>
+          <span className="text-xs uppercase tracking-widest text-cyan-500">Fly zone entry required</span>
+          <span className="text-xs text-zinc-500 font-mono">Use Annotate → Start to mark the entry line</span>
         </div>
       );
     }
@@ -660,8 +660,8 @@ function CoMTab({
       return (
         <div className="px-4 py-8 flex flex-col gap-2 items-center text-center">
           <div className="w-2 h-2 rounded-full bg-orange-400" />
-          <span className="text-[9px] uppercase tracking-widest text-orange-500">Fly zone exit required</span>
-          <span className="text-[9px] text-zinc-500 font-mono">Use Annotate → Finish to mark the exit line</span>
+          <span className="text-xs uppercase tracking-widest text-orange-500">Fly zone exit required</span>
+          <span className="text-xs text-zinc-500 font-mono">Use Annotate → Finish to mark the exit line</span>
         </div>
       );
     }
@@ -684,10 +684,10 @@ function CoMTab({
       return (
         <div className="px-4 py-8 flex flex-col gap-2 items-center text-center">
           <div className="w-2 h-2 rounded-full bg-zinc-500" />
-          <span className="text-[9px] uppercase tracking-widest text-zinc-500">
+          <span className="text-xs uppercase tracking-widest text-zinc-500">
             {entryFrac === null ? 'CoM never reaches entry marker' : 'CoM never reaches exit marker (or exit before entry)'}
           </span>
-          <span className="text-[9px] text-zinc-600 font-mono">Check that Start comes before Finish and markers are within the athlete's path — or enter frames manually below</span>
+          <span className="text-xs text-zinc-600 font-mono">Check that Start comes before Finish and markers are within the athlete's path — or enter frames manually below</span>
           {/* Manual override inputs even when auto fails */}
           <div className="mt-2 flex flex-col gap-2 w-full max-w-50">
             {(['entry', 'exit'] as const).map((side) => {
@@ -697,7 +697,7 @@ function CoMTab({
               const autoVal = isEntry ? autoEntryFrac : autoExitFrac;
               return (
                 <div key={side} className="flex items-center gap-1.5">
-                  <span className="text-[9px] font-mono text-zinc-500 w-12 text-right capitalize">{side} fr</span>
+                  <span className="text-xs font-mono text-zinc-500 w-12 text-right capitalize">{side} fr</span>
                   <input
                     type="number" min={0} max={n - 1}
                     value={override ?? ''}
@@ -706,13 +706,13 @@ function CoMTab({
                       const v = parseInt(e.target.value, 10);
                       setOverride(!isNaN(v) && v >= 0 ? v : null);
                     }}
-                    className={`w-16 text-[9px] font-mono rounded-sm px-1 py-0.5 tabular-nums text-center outline-none
+                    className={`w-16 text-xs font-mono rounded-sm px-1 py-0.5 tabular-nums text-center outline-none
                       ${override !== null
                         ? 'bg-violet-950/60 border border-violet-500/60 text-violet-300'
                         : 'bg-zinc-900 border border-zinc-700 text-orange-400'}`}
                   />
                   {override !== null && (
-                    <button onClick={() => setOverride(null)} title="Reset to auto" className="text-[10px] text-zinc-500 hover:text-orange-400 transition-colors cursor-pointer">↺</button>
+                    <button onClick={() => setOverride(null)} title="Reset to auto" className="text-xs text-zinc-500 hover:text-orange-400 transition-colors cursor-pointer">↺</button>
                   )}
                 </div>
               );
@@ -747,10 +747,10 @@ function CoMTab({
             { label: 'Velocity', value: flyVelocity.toFixed(2), unit: 'm/s' },
           ].map(({ label, value, unit }) => (
             <div key={label} className="px-2 py-2 flex flex-col gap-0.5">
-              <span className="text-[8px] uppercase tracking-widest text-zinc-500">{label}</span>
+              <span className="text-xs uppercase tracking-widest text-zinc-500">{label}</span>
               <div className="flex items-baseline gap-0.5">
-                <span className="text-sm font-mono tabular-nums" style={{ color: '#f97316' }}>{value}</span>
-                <span className="text-[9px] font-mono text-zinc-500">{unit}</span>
+                <span className="text-base font-mono tabular-nums" style={{ color: '#f97316' }}>{value}</span>
+                <span className="text-xs font-mono text-zinc-500">{unit}</span>
               </div>
             </div>
           ))}
@@ -759,7 +759,7 @@ function CoMTab({
         <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800/60 flex flex-col gap-1.5">
           {/* Entry frame — editable */}
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[9px] font-mono text-zinc-500 shrink-0">Entry (Annotate → Start)</span>
+            <span className="text-xs font-mono text-zinc-500 shrink-0">Entry (Annotate → Start)</span>
             <div className="flex items-center gap-1">
               <input
                 type="number" min={0} max={n - 1}
@@ -768,20 +768,20 @@ function CoMTab({
                   const v = parseInt(e.target.value, 10);
                   setFlyEntryOverride(!isNaN(v) && v >= 0 ? v : null);
                 }}
-                className={`w-14 text-[9px] font-mono rounded-sm px-1 py-0.5 tabular-nums text-center outline-none
+                className={`w-14 text-xs font-mono rounded-sm px-1 py-0.5 tabular-nums text-center outline-none
                   ${flyEntryOverride !== null
                     ? 'bg-violet-950/60 border border-violet-500/60 text-violet-300'
                     : 'bg-zinc-900 border border-zinc-700 text-cyan-400'}`}
               />
-              <span className="text-[9px] font-mono text-zinc-500">· {(entryFrac / fps).toFixed(3)}s</span>
+              <span className="text-xs font-mono text-zinc-500">· {(entryFrac / fps).toFixed(3)}s</span>
               {flyEntryOverride !== null && (
-                <button onClick={() => setFlyEntryOverride(null)} title="Reset to auto" className="text-[10px] text-zinc-500 hover:text-cyan-400 transition-colors cursor-pointer">↺</button>
+                <button onClick={() => setFlyEntryOverride(null)} title="Reset to auto" className="text-xs text-zinc-500 hover:text-cyan-400 transition-colors cursor-pointer">↺</button>
               )}
             </div>
           </div>
           {/* Exit frame — editable */}
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[9px] font-mono text-zinc-500 shrink-0">Exit (Annotate → Finish)</span>
+            <span className="text-xs font-mono text-zinc-500 shrink-0">Exit (Annotate → Finish)</span>
             <div className="flex items-center gap-1">
               <input
                 type="number" min={0} max={n - 1}
@@ -790,20 +790,20 @@ function CoMTab({
                   const v = parseInt(e.target.value, 10);
                   setFlyExitOverride(!isNaN(v) && v >= 0 ? v : null);
                 }}
-                className={`w-14 text-[9px] font-mono rounded-sm px-1 py-0.5 tabular-nums text-center outline-none
+                className={`w-14 text-xs font-mono rounded-sm px-1 py-0.5 tabular-nums text-center outline-none
                   ${flyExitOverride !== null
                     ? 'bg-violet-950/60 border border-violet-500/60 text-violet-300'
                     : 'bg-zinc-900 border border-zinc-700 text-orange-400'}`}
               />
-              <span className="text-[9px] font-mono text-zinc-500">· {(exitFrac / fps).toFixed(3)}s</span>
+              <span className="text-xs font-mono text-zinc-500">· {(exitFrac / fps).toFixed(3)}s</span>
               {flyExitOverride !== null && (
-                <button onClick={() => setFlyExitOverride(null)} title="Reset to auto" className="text-[10px] text-zinc-500 hover:text-orange-400 transition-colors cursor-pointer">↺</button>
+                <button onClick={() => setFlyExitOverride(null)} title="Reset to auto" className="text-xs text-zinc-500 hover:text-orange-400 transition-colors cursor-pointer">↺</button>
               )}
             </div>
           </div>
           <div className="flex justify-between">
-            <span className="text-[9px] font-mono text-zinc-500">Distance from calibrated CoM</span>
-            <span className="text-[9px] font-mono text-zinc-300">{flyDistance.toFixed(2)} m</span>
+            <span className="text-xs font-mono text-zinc-500">Distance from calibrated CoM</span>
+            <span className="text-xs font-mono text-zinc-300">{flyDistance.toFixed(2)} m</span>
           </div>
         </div>
       </div>
@@ -854,12 +854,12 @@ export const Telemetry = () => {
           <div className="w-4 h-4 border border-zinc-600 border-t-sky-400 rounded-full animate-spin" />
         )}
         <span
-          className={`text-[9px] uppercase tracking-widest font-mono ${isUncalibrated ? 'text-amber-500' : 'text-zinc-500'}`}
+          className={`text-xs uppercase tracking-widest font-mono ${isUncalibrated ? 'text-amber-500' : 'text-zinc-500'}`}
         >
           {msg}
         </span>
         {isUncalibrated && (
-          <span className="text-[8px] text-zinc-600 font-mono">
+          <span className="text-xs text-zinc-600 font-mono">
             Use the calibration tool in the control panel
           </span>
         )}
@@ -891,7 +891,7 @@ export const Telemetry = () => {
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`flex-1 py-1.5 text-[8px] uppercase tracking-widest transition-colors cursor-pointer
+            className={`flex-1 py-1.5 text-xs uppercase tracking-widest transition-colors cursor-pointer
               border-r border-zinc-200 dark:border-zinc-800 last:border-r-0
               ${
                 tab === t.key
@@ -926,7 +926,7 @@ export const Telemetry = () => {
               </>
             ) : (
               <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800/60">
-                <span className="text-[8px] uppercase tracking-widest text-amber-500">
+                <span className="text-xs uppercase tracking-widest text-amber-500">
                   No calibration — distances shown in pixels
                 </span>
               </div>
