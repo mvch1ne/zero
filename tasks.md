@@ -5,7 +5,7 @@ TODO
 - Next Prompt after we resume:
   Here's the previous prompt before we were cut off.
   Block the computation it so that it can only move forward and compute if I have set two things:
-- The first movement (sprint start - you will pick a frame, and I can override it). Create a marker on the scrubber and on the viewport at the exact frame you predict for this start point (think of it like when the gun went). Then I can use the button you are about to create (there's actually one there in the control panel with its own stuff (startFrame, onSetStartFrame, etc). Just move it up and allow me to use it to override the start frame
+- The first movement (sprint start - you will pick a frame, and I can override it). Create a marker on the scrubber and on the viewport at the exact frame you predict for this start point (think of it like when the gun went). Then I can use the button you are about to create (there's actually one there in the control panel with its own stuff [startFrame, onSetStartFrame, etc]). Just move it up and allow me to use it to override the start frame
 - The start point or start line (this will be the reference for all displacements). The current code is doing the calculations right. It just needs the start line or start point to start from there. Now allow me to draw the start line diagonally so that you can pick which frame the CoM passed it.
   Also when you're done remove the CoM horizontal speed from the the telemetry summary since it's still using instantaneous values
 
