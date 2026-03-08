@@ -6,6 +6,13 @@ import { LANDMARKS, CONNECTIONS, REGION_COLORS } from './poseConfig';
 
 export type ViewMode = 'video' | 'skeleton' | 'body';
 
+export interface ManualContact {
+  id: string;
+  foot: 'left' | 'right';
+  contactFrame: number;
+  contactSite: { x: number; y: number }; // inference-frame pixel coords
+}
+
 interface Props {
   keypoints: Keypoint[];
   frameWidth: number;
@@ -18,7 +25,13 @@ interface Props {
   // Imperative ref — assign to allow rAF loop to call draw() directly
   // without going through React state (eliminates pose lag at non-1x speeds)
   drawRef?: React.MutableRefObject<((kp: Keypoint[]) => void) | null>;
-  groundContacts?: GroundContactEvent[]; // stride length annotations
+  groundContacts?: GroundContactEvent[];
+  // Annotation mode
+  annotateMode?: 'off' | 'left' | 'right';
+  currentFrame?: number;
+  onAddContact?: (c: ManualContact) => void;
+  onMoveContact?: (id: string, site: { x: number; y: number }) => void;
+  onDeleteContact?: (id: string) => void;
 }
 
 const SCORE_THRESHOLD = 0.43;
@@ -44,6 +57,11 @@ export const PoseOverlay = ({
   viewMode = 'video',
   drawRef,
   groundContacts = [],
+  annotateMode = 'off',
+  currentFrame = 0,
+  onAddContact,
+  onMoveContact,
+  onDeleteContact,
 }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mousePosRef = useRef<{ x: number; y: number } | null>(null);
@@ -58,30 +76,35 @@ export const PoseOverlay = ({
   const showLabelsRef = useRef(showLabels);
   const viewModeRef = useRef(viewMode);
   const groundContactsRef = useRef(groundContacts);
-  useEffect(() => {
-    frameWidthRef.current = frameWidth;
-  }, [frameWidth]);
-  useEffect(() => {
-    frameHeightRef.current = frameHeight;
-  }, [frameHeight]);
-  useEffect(() => {
-    natWidthRef.current = videoNatWidth;
-  }, [videoNatWidth]);
-  useEffect(() => {
-    natHeightRef.current = videoNatHeight;
-  }, [videoNatHeight]);
-  useEffect(() => {
-    visibilityMapRef.current = visibilityMap;
-  }, [visibilityMap]);
-  useEffect(() => {
-    showLabelsRef.current = showLabels;
-  }, [showLabels]);
-  useEffect(() => {
-    viewModeRef.current = viewMode;
-  }, [viewMode]);
-  useEffect(() => {
-    groundContactsRef.current = groundContacts;
-  }, [groundContacts]);
+  const annotateModeRef = useRef(annotateMode);
+  const currentFrameRef = useRef(currentFrame);
+  const onAddContactRef = useRef(onAddContact);
+  const onMoveContactRef = useRef(onMoveContact);
+  const onDeleteContactRef = useRef(onDeleteContact);
+
+  // Cached letterbox transform — populated each draw, used by event handlers
+  const lbRef = useRef({ left: 0, top: 0, width: 0, height: 0 });
+  const sxRef = useRef(1);
+  const syRef = useRef(1);
+
+  // Annotation interaction state
+  const draggingRef = useRef<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const tempDragRef = useRef<{ id: string; site: { x: number; y: number } } | null>(null);
+  const pendingAddRef = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => { frameWidthRef.current = frameWidth; }, [frameWidth]);
+  useEffect(() => { frameHeightRef.current = frameHeight; }, [frameHeight]);
+  useEffect(() => { natWidthRef.current = videoNatWidth; }, [videoNatWidth]);
+  useEffect(() => { natHeightRef.current = videoNatHeight; }, [videoNatHeight]);
+  useEffect(() => { visibilityMapRef.current = visibilityMap; }, [visibilityMap]);
+  useEffect(() => { showLabelsRef.current = showLabels; }, [showLabels]);
+  useEffect(() => { viewModeRef.current = viewMode; }, [viewMode]);
+  useEffect(() => { groundContactsRef.current = groundContacts; }, [groundContacts]);
+  useEffect(() => { annotateModeRef.current = annotateMode; }, [annotateMode]);
+  useEffect(() => { currentFrameRef.current = currentFrame; }, [currentFrame]);
+  useEffect(() => { onAddContactRef.current = onAddContact; }, [onAddContact]);
+  useEffect(() => { onMoveContactRef.current = onMoveContact; }, [onMoveContact]);
+  useEffect(() => { onDeleteContactRef.current = onDeleteContact; }, [onDeleteContact]);
 
   // ── Core imperative draw — accepts keypoints directly ────────────────────
   const drawKp = useCallback((kp: Keypoint[]) => {
@@ -103,6 +126,10 @@ export const PoseOverlay = ({
     const lb = letterboxRect(cw, ch, natWidthRef.current, natHeightRef.current);
     const sx = lb.width / fw;
     const sy = lb.height / fh;
+    // Cache for event handlers
+    lbRef.current = lb;
+    sxRef.current = sx;
+    syRef.current = sy;
 
     const toCanvas = (p: Keypoint) => ({
       x: lb.left + p.x * sx,
@@ -243,98 +270,154 @@ export const PoseOverlay = ({
       }
     }
 
-    // ── Stride length annotations ─────────────────────────────────────────
+    // ── Ground contacts + annotation ────────────────────────────────────────
     const contacts = groundContactsRef.current;
-    if (contacts.length > 0 && fw && fh) {
+    const annotate = annotateModeRef.current;
+    if ((contacts.length > 0 || annotate !== 'off') && fw && fh) {
       const toC = (p: { x: number; y: number }) => ({
         x: lb.left + p.x * sx,
         y: lb.top + p.y * sy,
       });
 
-      const drawStridePair = (
-        a: GroundContactEvent,
-        b: GroundContactEvent,
-        color: string,
-        labelColor: string,
-      ) => {
-        const pa = toC(a.contactSite);
-        const pb = toC(b.contactSite);
-        const groundY = Math.max(pa.y, pb.y) + 18;
+      // Effective positions (drag overrides stored site)
+      const tempDrag = tempDragRef.current;
+      const effSite = (c: GroundContactEvent) =>
+        tempDrag && c.id && tempDrag.id === c.id ? tempDrag.site : c.contactSite;
 
-        // Horizontal bracket
-        ctx.save();
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1.2;
-        ctx.setLineDash([3, 3]);
-        ctx.beginPath();
-        ctx.moveTo(pa.x, groundY);
-        ctx.lineTo(pb.x, groundY);
-        ctx.stroke();
-        // Tick marks
-        ctx.setLineDash([]);
-        ctx.beginPath();
-        ctx.moveTo(pa.x, groundY - 4);
-        ctx.lineTo(pa.x, groundY + 4);
-        ctx.moveTo(pb.x, groundY - 4);
-        ctx.lineTo(pb.x, groundY + 4);
-        ctx.stroke();
-        // Label
-        if (b.strideLength !== null) {
-          const mid = (pa.x + pb.x) / 2;
-          const label = `${b.strideLength.toFixed(2)}m`;
-          ctx.font = '9px "DM Mono", monospace';
-          ctx.fillStyle = labelColor;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'bottom';
-          ctx.fillText(label, mid, groundY - 5);
-        }
-        ctx.restore();
-      };
-
-      // Draw step brackets between consecutive contacts of any foot
-      for (let i = 1; i < contacts.length; i++) {
-        const a = contacts[i - 1];
-        const b = contacts[i];
-        if (b.strideLength !== null) {
-          const col = b.foot === 'left' ? '#10b981' : '#06b6d4';
-          drawStridePair(a, b, col + '99', col);
-        }
-      }
-
-      // ── Ground contact nodes ─────────────────────────────────────────────
       const mx = mousePosRef.current?.x ?? -9999;
       const my = mousePosRef.current?.y ?? -9999;
       const HOVER_R = 16;
-      let hoveredContact: GroundContactEvent | null = null;
-      for (const c of contacts) {
-        const cnx = lb.left + c.contactSite.x * sx;
-        const cny = lb.top + c.contactSite.y * sy;
-        if (Math.hypot(cnx - mx, cny - my) < HOVER_R) {
-          hoveredContact = c;
-          break;
+
+      // Step brackets between consecutive contacts
+      if (contacts.length > 1) {
+        const drawStridePair = (
+          a: GroundContactEvent,
+          b: GroundContactEvent,
+          color: string,
+          labelColor: string,
+        ) => {
+          const pa = toC(effSite(a));
+          const pb = toC(effSite(b));
+          const groundY = Math.max(pa.y, pb.y) + 18;
+          ctx.save();
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.2;
+          ctx.setLineDash([3, 3]);
+          ctx.beginPath();
+          ctx.moveTo(pa.x, groundY);
+          ctx.lineTo(pb.x, groundY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          ctx.moveTo(pa.x, groundY - 4); ctx.lineTo(pa.x, groundY + 4);
+          ctx.moveTo(pb.x, groundY - 4); ctx.lineTo(pb.x, groundY + 4);
+          ctx.stroke();
+          if (b.strideLength !== null) {
+            const mid = (pa.x + pb.x) / 2;
+            ctx.font = '9px "DM Mono", monospace';
+            ctx.fillStyle = labelColor;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(`${b.strideLength.toFixed(2)}m`, mid, groundY - 5);
+          }
+          ctx.restore();
+        };
+        for (let i = 1; i < contacts.length; i++) {
+          const a = contacts[i - 1];
+          const b = contacts[i];
+          if (b.strideLength !== null) {
+            const col = b.foot === 'left' ? '#10b981' : '#06b6d4';
+            drawStridePair(a, b, col + '99', col);
+          }
         }
       }
-      for (const c of contacts) {
-        const cnx = lb.left + c.contactSite.x * sx;
-        const cny = lb.top + c.contactSite.y * sy;
+
+      // ── Contact nodes ─────────────────────────────────────────────────────
+      // Hover detection: × delete button (manual only, annotate mode)
+      let hoveredDeleteId: string | null = null;
+      if (annotate !== 'off') {
+        for (const c of contacts) {
+          if (!c.isManual || !c.id) continue;
+          const s = effSite(c);
+          const cnx = lb.left + s.x * sx;
+          const cny = lb.top + s.y * sy;
+          if (Math.hypot((cnx + 9) - mx, (cny - 9) - my) < 8) {
+            hoveredDeleteId = c.id;
+            break;
+          }
+        }
+      }
+      // Hover detection: contact node (not on a delete button)
+      let hoveredContact: GroundContactEvent | null = null;
+      if (!hoveredDeleteId) {
+        for (const c of contacts) {
+          const s = effSite(c);
+          const cnx = lb.left + s.x * sx;
+          const cny = lb.top + s.y * sy;
+          if (Math.hypot(cnx - mx, cny - my) < HOVER_R) {
+            hoveredContact = c;
+            break;
+          }
+        }
+      }
+
+      // Draw nodes
+      contacts.forEach((c, idx) => {
+        const s = effSite(c);
+        const cnx = lb.left + s.x * sx;
+        const cny = lb.top + s.y * sy;
         const isHov = hoveredContact === c;
+        const r = isHov ? 7 : 5;
         const ncol = c.foot === 'left' ? '#10b981' : '#06b6d4';
+
+        // Circle
         ctx.beginPath();
-        ctx.arc(cnx, cny, isHov ? 7 : 5, 0, Math.PI * 2);
+        ctx.arc(cnx, cny, r, 0, Math.PI * 2);
         ctx.fillStyle = isHov ? ncol : ncol + '99';
         ctx.fill();
+        if (c.isManual && annotate !== 'off') ctx.setLineDash([2, 2]);
         ctx.strokeStyle = isHov ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.55)';
         ctx.lineWidth = isHov ? 2 : 1.5;
         ctx.stroke();
-      }
+        ctx.setLineDash([]);
+
+        // Sequential number
+        ctx.font = `bold ${r <= 5 ? 7 : 8}px "DM Mono", monospace`;
+        ctx.fillStyle = 'rgba(255,255,255,0.95)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(idx + 1), cnx, cny);
+
+        // × delete button (manual contacts in annotate mode)
+        if (c.isManual && c.id && annotate !== 'off') {
+          const bx = cnx + r + 2;
+          const by = cny - r - 2;
+          const isDelHov = hoveredDeleteId === c.id;
+          ctx.beginPath();
+          ctx.arc(bx, by, 5, 0, Math.PI * 2);
+          ctx.fillStyle = isDelHov ? '#ef4444' : 'rgba(239,68,68,0.75)';
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.font = 'bold 7px sans-serif';
+          ctx.fillStyle = 'white';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('×', bx, by);
+        }
+      });
+
       // Tooltip
       if (hoveredContact) {
         const hc = hoveredContact;
-        const cnx = lb.left + hc.contactSite.x * sx;
-        const cny = lb.top + hc.contactSite.y * sy;
+        const s = effSite(hc);
+        const cnx = lb.left + s.x * sx;
+        const cny = lb.top + s.y * sy;
         const tcol = hc.foot === 'left' ? '#10b981' : '#06b6d4';
+        const contactIdx = contacts.indexOf(hc) + 1;
         const lines: string[] = [
-          `${hc.foot === 'left' ? 'Left' : 'Right'} foot`,
+          `#${contactIdx} — ${hc.foot === 'left' ? 'Left' : 'Right'} foot${hc.isManual ? ' (manual)' : ''}`,
           `Contact time: ${(hc.contactTime * 1000).toFixed(0)} ms`,
           hc.flightTimeBefore > 0.01
             ? `Flight before: ${(hc.flightTimeBefore * 1000).toFixed(0)} ms`
@@ -425,7 +508,7 @@ export const PoseOverlay = ({
   // Redraw when any display-affecting prop changes
   useEffect(() => {
     drawKp(currentKpRef.current);
-  }, [visibilityMap, showLabels, viewMode, drawKp]);
+  }, [visibilityMap, showLabels, viewMode, groundContacts, annotateMode, drawKp]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -437,20 +520,124 @@ export const PoseOverlay = ({
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    mousePosRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    drawKp(keypoints);
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    mousePosRef.current = { x: mx, y: my };
+
+    if (draggingRef.current) {
+      const { id, offsetX, offsetY } = draggingRef.current;
+      const lb = lbRef.current;
+      tempDragRef.current = {
+        id,
+        site: {
+          x: (mx - offsetX - lb.left) / sxRef.current,
+          y: (my - offsetY - lb.top) / syRef.current,
+        },
+      };
+    }
+    drawKp(currentKpRef.current);
   };
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (annotateModeRef.current === 'off') return;
+    e.stopPropagation(); // prevent viewport pan
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const lb = lbRef.current;
+    const sx = sxRef.current;
+    const sy = syRef.current;
+    const contacts = groundContactsRef.current;
+
+    // Check × delete buttons first
+    for (const c of contacts) {
+      if (!c.isManual || !c.id) continue;
+      const s = tempDragRef.current?.id === c.id ? tempDragRef.current!.site : c.contactSite;
+      const cnx = lb.left + s.x * sx;
+      const cny = lb.top + s.y * sy;
+      const r = 5;
+      const bx = cnx + r + 2;
+      const by = cny - r - 2;
+      if (Math.hypot(bx - mx, by - my) < 8) {
+        onDeleteContactRef.current?.(c.id);
+        return;
+      }
+    }
+
+    // Check if clicking on a draggable manual contact
+    for (const c of contacts) {
+      if (!c.isManual || !c.id) continue;
+      const cnx = lb.left + c.contactSite.x * sx;
+      const cny = lb.top + c.contactSite.y * sy;
+      if (Math.hypot(cnx - mx, cny - my) < 12) {
+        draggingRef.current = { id: c.id, offsetX: mx - cnx, offsetY: my - cny };
+        return;
+      }
+    }
+
+    // Otherwise mark for pending add on mouseup
+    pendingAddRef.current = { x: mx, y: my };
+  };
+
+  const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (annotateModeRef.current === 'off') return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    if (draggingRef.current) {
+      const id = draggingRef.current.id;
+      const lb = lbRef.current;
+      const site = tempDragRef.current?.site ?? {
+        x: (mx - draggingRef.current.offsetX - lb.left) / sxRef.current,
+        y: (my - draggingRef.current.offsetY - lb.top) / syRef.current,
+      };
+      onMoveContactRef.current?.(id, site);
+      draggingRef.current = null;
+      tempDragRef.current = null;
+      drawKp(currentKpRef.current);
+      return;
+    }
+
+    if (pendingAddRef.current) {
+      const pa = pendingAddRef.current;
+      pendingAddRef.current = null;
+      if (Math.hypot(mx - pa.x, my - pa.y) < 8) {
+        // Click (not drag) — add contact at this position
+        const lb = lbRef.current;
+        const ix = (mx - lb.left) / sxRef.current;
+        const iy = (my - lb.top) / syRef.current;
+        if (ix >= 0 && iy >= 0) {
+          onAddContactRef.current?.({
+            id: crypto.randomUUID(),
+            foot: annotateModeRef.current as 'left' | 'right',
+            contactFrame: currentFrameRef.current,
+            contactSite: { x: ix, y: iy },
+          });
+        }
+      }
+    }
+  };
+
   const handleMouseLeave = () => {
     mousePosRef.current = null;
-    drawKp(keypoints);
+    // If dragging and mouse leaves, cancel drag
+    if (draggingRef.current) {
+      draggingRef.current = null;
+      tempDragRef.current = null;
+    }
+    pendingAddRef.current = null;
+    drawKp(currentKpRef.current);
   };
 
   return (
     <canvas
       ref={canvasRef}
       className="absolute inset-0 w-full h-full pointer-events-auto"
-      style={{ cursor: 'default' }}
+      style={{ cursor: annotateMode !== 'off' ? 'crosshair' : 'default' }}
       onMouseMove={handleMouseMove}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
     />
   );

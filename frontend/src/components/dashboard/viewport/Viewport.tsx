@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { FilePlayIcon, Clock, Upload, Layers, Box } from 'lucide-react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { FilePlayIcon, Clock, Upload, Layers, Box, Pencil } from 'lucide-react';
 import { IconDimensions } from '@tabler/icons-react';
 import { VideoLayer } from './VideoLayer';
 import { ControlPanel } from './ControlPanel';
@@ -9,7 +9,8 @@ import { MeasurementOverlay } from './CalibrationAndMeasurements/MeasurementOver
 import { MeasurementPanel } from './CalibrationAndMeasurements/MeasurementPanel';
 import type { Measurement } from './CalibrationAndMeasurements/MeasurementOverlay';
 import { PoseOverlay } from './PoseEngine/PoseOverlay';
-import type { ViewMode } from './PoseEngine/PoseOverlay';
+import type { ViewMode, ManualContact } from './PoseEngine/PoseOverlay';
+import type { GroundContactEvent } from '../useSprintMetrics';
 import { PosePanel } from './PoseEngine/PosePanel';
 import { usePoseLandmarker } from './PoseEngine/usePoseLandmarker';
 import type { Keypoint } from './PoseEngine/usePoseLandmarker';
@@ -76,6 +77,8 @@ export const Viewport = () => {
   const [showPoseLabels, setShowPoseLabels] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('video');
   const [mode3D, setMode3D] = useState(false);
+  const [manualContacts, setManualContacts] = useState<ManualContact[]>([]);
+  const [annotateMode, setAnnotateMode] = useState<'off' | 'left' | 'right'>('off');
   const [landmarkVisibility, setLandmarkVisibility] = useState<
     Record<number, boolean>
   >(buildDefaultVisibility);
@@ -128,6 +131,67 @@ export const Viewport = () => {
     poseFrameH,
   );
 
+  // ── Merged contacts (auto-detected + manually placed) ─────────────────────
+  const mergedContacts = useMemo<GroundContactEvent[]>(() => {
+    const autoEvents = metrics?.groundContacts ?? [];
+    if (manualContacts.length === 0) return autoEvents;
+
+    const contactDurationFrames = Math.max(1, Math.round(0.08 * fps));
+    const manualEvents: GroundContactEvent[] = manualContacts.map((m) => ({
+      id: m.id,
+      isManual: true,
+      foot: m.foot,
+      contactFrame: m.contactFrame,
+      liftFrame: m.contactFrame + contactDurationFrames,
+      contactTime: contactDurationFrames / fps,
+      flightTimeBefore: 0,
+      contactSite: m.contactSite,
+      comAtContact: { x: 0, y: 0 },
+      comDistance: 0,
+      strideLength: null,
+      strideFrequency: null,
+    }));
+
+    const all = [...autoEvents, ...manualEvents].sort(
+      (a, b) => a.contactFrame - b.contactFrame,
+    );
+
+    // Re-scale helper (horizontal step length only)
+    const hScale =
+      calibration && poseFrameW > 0
+        ? (dx: number) =>
+            (Math.abs(dx) / poseFrameW) *
+            calibration.aspectRatio /
+            calibration.pixelsPerMeter
+        : null;
+
+    return all.map((c, i) => {
+      if (i === 0)
+        return { ...c, strideLength: null, strideFrequency: null, flightTimeBefore: 0 };
+      const prev = all[i - 1];
+      const dx = Math.abs(c.contactSite.x - prev.contactSite.x);
+      return {
+        ...c,
+        strideLength: hScale ? hScale(dx) : null,
+        strideFrequency:
+          c.contactFrame > prev.contactFrame
+            ? 1 / ((c.contactFrame - prev.contactFrame) / fps)
+            : null,
+        flightTimeBefore: Math.max(0, (c.contactFrame - prev.liftFrame) / fps),
+      };
+    });
+  }, [metrics, manualContacts, fps, calibration, poseFrameW]);
+
+  const metricsWithMerged = useMemo(
+    () =>
+      !metrics
+        ? null
+        : manualContacts.length === 0
+          ? metrics
+          : { ...metrics, groundContacts: mergedContacts },
+    [metrics, manualContacts.length, mergedContacts],
+  );
+
   // ── Publish to VideoContext so Telemetry can read without prop-drilling ────
   const {
     setCurrentFrame: ctxSetFrame,
@@ -162,8 +226,8 @@ export const Viewport = () => {
     );
   }, [calibration]);
   useEffect(() => {
-    ctxSetMetrics(metrics);
-  }, [metrics, ctxSetMetrics]);
+    ctxSetMetrics(metricsWithMerged);
+  }, [metricsWithMerged, ctxSetMetrics]);
 
   // Publish pose status into PoseContext so Telemetry can show correct empty state
   const { setStatus: ctxSetPoseStatus } = usePose();
@@ -341,18 +405,23 @@ export const Viewport = () => {
 
   const calibratingRef = useRef(calibrating);
   const measuringRef = useRef(false);
+  const annotateActiveRef = useRef(false);
   useEffect(() => {
     measuringRef.current = measuringDistance || measuringAngle;
   }, [measuringDistance, measuringAngle]);
   useEffect(() => {
     calibratingRef.current = calibrating;
   }, [calibrating]);
+  useEffect(() => {
+    annotateActiveRef.current = annotateMode !== 'off';
+  }, [annotateMode]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (
       calibratingRef.current ||
       measuringRef.current ||
       drawingCrop ||
+      annotateActiveRef.current ||
       transform.scale <= 1
     )
       return;
@@ -425,6 +494,8 @@ export const Viewport = () => {
         setPoseEnabled(false);
         setShowPosePanel(false);
         setViewMode('video');
+        setManualContacts([]);
+        setAnnotateMode('off');
         resetPose();
         setLandmarkVisibility(buildDefaultVisibility());
         setShowTrimCropPanel(false);
@@ -539,6 +610,21 @@ export const Viewport = () => {
                   </button>
                 ))}
               </div>
+              {/* Annotate contacts */}
+              <button
+                onClick={() =>
+                  setAnnotateMode((m) => (m !== 'off' ? 'off' : 'left'))
+                }
+                className={`flex items-center gap-1 h-4 px-2 text-[10px] uppercase tracking-widest border rounded-sm transition-colors cursor-pointer
+                  ${
+                    annotateMode !== 'off'
+                      ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
+                      : 'border-zinc-400 dark:border-zinc-600 text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
+                  }`}
+              >
+                <Pencil className="w-2.5 h-2.5" />
+                <span>Annotate</span>
+              </button>
               {/* 3D mode indicator */}
               <button
                 onClick={() => setMode3D((v) => !v)}
@@ -581,7 +667,7 @@ export const Viewport = () => {
         className="flex-1 border border-zinc-400 dark:border-zinc-600 overflow-hidden relative bg-black select-none"
         style={{
           cursor:
-            calibrating || measuringDistance || measuringAngle || drawingCrop
+            calibrating || measuringDistance || measuringAngle || drawingCrop || annotateMode !== 'off'
               ? 'crosshair'
               : transform.scale > 1
                 ? 'grab'
@@ -644,7 +730,18 @@ export const Viewport = () => {
                   showLabels={showPoseLabels}
                   viewMode={viewMode}
                   drawRef={poseDrawRef}
-                  groundContacts={metrics?.groundContacts}
+                  groundContacts={mergedContacts}
+                  annotateMode={annotateMode}
+                  currentFrame={currentFrame}
+                  onAddContact={(c) => setManualContacts((prev) => [...prev, c])}
+                  onMoveContact={(id, site) =>
+                    setManualContacts((prev) =>
+                      prev.map((m) => (m.id === id ? { ...m, contactSite: site } : m)),
+                    )
+                  }
+                  onDeleteContact={(id) =>
+                    setManualContacts((prev) => prev.filter((m) => m.id !== id))
+                  }
                 />
               )}
             </div>
@@ -734,6 +831,46 @@ export const Viewport = () => {
                       setMeasuringAngle(false);
                     }}
                     className="ml-2 text-[11px] uppercase tracking-widest text-zinc-500 hover:text-zinc-300 transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {annotateMode !== 'off' && (
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 pointer-events-none">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-950/80 border border-amber-600/50 rounded-sm backdrop-blur-sm pointer-events-auto">
+                  <div className="w-1.5 h-1.5 rounded-full animate-pulse bg-amber-400" />
+                  <span className="text-[11px] uppercase tracking-widest text-amber-300">
+                    Adding:{' '}
+                    <span
+                      className={
+                        annotateMode === 'left' ? 'text-emerald-400' : 'text-cyan-400'
+                      }
+                    >
+                      {annotateMode} foot
+                    </span>
+                  </span>
+                  <button
+                    onClick={() =>
+                      setAnnotateMode((m) => (m === 'left' ? 'right' : 'left'))
+                    }
+                    className="text-[11px] uppercase tracking-widest text-zinc-400 hover:text-zinc-200 border border-zinc-600 px-1.5 py-0.5 rounded-sm transition-colors"
+                  >
+                    Switch to {annotateMode === 'left' ? 'right' : 'left'}
+                  </button>
+                  {manualContacts.length > 0 && (
+                    <button
+                      onClick={() => setManualContacts([])}
+                      className="text-[11px] uppercase tracking-widest text-red-500 hover:text-red-400 transition-colors"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setAnnotateMode('off')}
+                    className="ml-1 text-[11px] uppercase tracking-widest text-zinc-500 hover:text-zinc-300 transition-colors"
                   >
                     Done
                   </button>

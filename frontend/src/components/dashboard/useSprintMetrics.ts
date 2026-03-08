@@ -18,6 +18,8 @@ import type { CalibrationData } from './viewport/CalibrationAndMeasurements/Cali
 // ── Public types ───────────────────────────────────────────────────────────────
 
 export interface GroundContactEvent {
+  id?: string;        // set for manually-placed contacts
+  isManual?: boolean;
   foot: 'left' | 'right';
   contactFrame: number; // first frame foot is on ground
   liftFrame: number; // first frame foot leaves ground
