@@ -11,6 +11,8 @@ TODO
 
 Continue. For the start frame, even if you set it, let me set it (reconfirm) before we move forward. Also once, we cross the start line, displacement shouldn't be negative so velocity shouldn't be negative. But right now it is because it isn't clear what the start line is and what the sprint start frame is. You know what you're supposed to do but simplify it so the user just has to set the few things.
 
+IMPORTANT: I should probably account the velocity calculations for the average sprint reaction time in the velocity calculations. So the velocity will compute and be realistic. What are your thoughts? Because if Bolt is getting to 10m in 1.83 with RT and I'm getting there in 1.83 without RT, velocity wise we are the same but technically I am behind him. So pick a fixed reaction time and apply it to (the first?) timepoint when doing the calculations? That will affect acceleration too because of the elapsed time but the displacement technically doesn't change. So I guess we could say that this new elapsed time will be current time + estimated reaction time. Be sure to display this in the CoM panel. And even allow me to choose what the preset reaction time should be and update all calculations if it changes. What are your thoughts?
+
 ---
 
 - Build feature to suggest first movement (and hence the point to start time measurements) but allow us to override that (there's already a button in the control panel that could be used for that. Although I think it should probably be moved somewhere upwards.)
