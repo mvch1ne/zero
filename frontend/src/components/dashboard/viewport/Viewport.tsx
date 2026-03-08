@@ -183,12 +183,16 @@ export const Viewport = () => {
         : null;
 
     return all.map((c, i) => {
+      // Always recompute contactTime from the actual frame values so edits
+      // to contactFrame or liftFrame are reflected consistently everywhere.
+      const contactTime = (c.liftFrame - c.contactFrame) / fps;
       if (i === 0)
-        return { ...c, strideLength: null, strideFrequency: null, flightTimeBefore: 0 };
+        return { ...c, contactTime, strideLength: null, strideFrequency: null, flightTimeBefore: 0 };
       const prev = all[i - 1];
       const dx = Math.abs(c.contactSite.x - prev.contactSite.x);
       return {
         ...c,
+        contactTime,
         strideLength: hScale ? hScale(dx) : null,
         strideFrequency:
           c.contactFrame > prev.contactFrame
