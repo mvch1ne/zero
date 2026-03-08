@@ -3,7 +3,6 @@ import { FilePlayIcon, Clock, Upload, Layers, Box, Pencil } from 'lucide-react';
 import { IconDimensions } from '@tabler/icons-react';
 import { VideoLayer } from './VideoLayer';
 import { ControlPanel } from './ControlPanel';
-import { StartLineOverlay } from './StartLineOverlay';
 import { CalibrationOverlay } from './CalibrationAndMeasurements/CalibrationOverlay';
 import type { CalibrationData } from './CalibrationAndMeasurements/CalibrationOverlay';
 import { MeasurementOverlay } from './CalibrationAndMeasurements/MeasurementOverlay';
@@ -244,19 +243,10 @@ export const Viewport = () => {
     setSprintMode: ctxSetSprintMode,
     setConfirmedSprintStart: ctxSetConfirmedSprintStart,
     setProposedSprintStart: ctxSetProposedSprintStart,
-    setStartLine: ctxSetStartLine,
     setReactionTime: ctxSetReactionTime,
     setReactionTimeEnabled: ctxSetReactionTimeEnabled,
-    setFlyDistance: ctxSetFlyDistance,
-    setPoseFrameW: ctxSetPoseFrameW,
-    setPoseFrameH: ctxSetPoseFrameH,
     sprintMode,
-    confirmedSprintStart,
-    startLine,
   } = useVideoContext();
-
-  // ── Start line drawing state ───────────────────────────────────────────────
-  const [drawingStartLine, setDrawingStartLine] = useState(false);
 
   // Stable delete handler — reads manualContactsRef to avoid stale closure
   const handleDeleteContact = useCallback((id: string) => {
@@ -359,13 +349,9 @@ export const Viewport = () => {
   useEffect(() => { ctxSetShowCoMEvents(showCoMEvents); }, [showCoMEvents, ctxSetShowCoMEvents]);
   useEffect(() => { ctxSetSprintStart(sprintStart); }, [sprintStart, ctxSetSprintStart]);
   useEffect(() => { ctxSetSprintFinish(sprintFinish); }, [sprintFinish, ctxSetSprintFinish]);
-  useEffect(() => { ctxSetPoseFrameW(poseFrameW); }, [poseFrameW, ctxSetPoseFrameW]);
-  useEffect(() => { ctxSetPoseFrameH(poseFrameH); }, [poseFrameH, ctxSetPoseFrameH]);
-
   // ── Suppress unused setter warnings (passed to Telemetry via context) ──────
   void ctxSetReactionTime;
   void ctxSetReactionTimeEnabled;
-  void ctxSetFlyDistance;
 
   // Auto-detect first significant movement from CoM data
   const proposedSprintStartFrame = useMemo(() => {
@@ -802,7 +788,7 @@ export const Viewport = () => {
               {/* Sprint mode selector */}
               <div className="h-3 w-px bg-zinc-400 dark:bg-zinc-600" />
               <div className="flex items-center border border-zinc-400 dark:border-zinc-600 rounded-sm overflow-hidden">
-                {(['general', 'static', 'flying'] as const).map((mode) => (
+                {(['static', 'flying'] as const).map((mode) => (
                   <button
                     key={mode}
                     onClick={() => ctxSetSprintMode(mode)}
@@ -811,30 +797,15 @@ export const Viewport = () => {
                         ? 'bg-zinc-800 dark:bg-zinc-200 text-zinc-100 dark:text-zinc-900'
                         : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'}`}
                   >
-                    {mode === 'general' ? 'Gen' : mode === 'static' ? 'Static' : 'Fly'}
+                    {mode === 'static' ? 'Static' : 'Fly'}
                   </button>
                 ))}
               </div>
 
-              {/* Start line tools */}
               {sprintMode === 'static' && (
-                <>
-                  <button
-                    onClick={() => setDrawingStartLine(true)}
-                    className={`flex items-center gap-1 h-4 px-2 text-[10px] uppercase tracking-widest border rounded-sm transition-colors cursor-pointer
-                      ${startLine ? 'border-cyan-500/50 text-cyan-400' : 'border-dashed border-zinc-400 dark:border-zinc-600 text-zinc-500 hover:text-cyan-400 hover:border-cyan-500/50'}`}
-                  >
-                    <span>{startLine ? 'Start Line ●' : 'Draw Start Line'}</span>
-                  </button>
-                  {startLine && (
-                    <button
-                      onClick={() => ctxSetStartLine(null)}
-                      className="text-[9px] uppercase tracking-widest text-red-500/60 hover:text-red-400 transition-colors cursor-pointer"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </>
+                <span className="text-[9px] font-mono text-zinc-500 italic">
+                  Use Annotate → Start to mark the start line
+                </span>
               )}
               {sprintMode === 'flying' && (
                 <span className="text-[9px] font-mono text-zinc-500 italic">
@@ -1026,20 +997,6 @@ export const Viewport = () => {
               />
             )}
 
-            {/* Start line overlay (static + flying mode) */}
-            <StartLineOverlay
-              active={drawingStartLine}
-              transform={transform}
-              color="#22d3ee"
-              label="Start Line"
-              existingLine={startLine}
-              onLineSet={(line) => {
-                ctxSetStartLine(line);
-                setDrawingStartLine(false);
-              }}
-              onCancel={() => setDrawingStartLine(false)}
-            />
-
             {(measuringDistance || measuringAngle) && (
               <div className="absolute bottom-3 left-1/2 -translate-x-1/2 pointer-events-none">
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-950/80 border border-zinc-600 rounded-sm backdrop-blur-sm pointer-events-auto">
@@ -1061,20 +1018,6 @@ export const Viewport = () => {
                     className="ml-2 text-[11px] uppercase tracking-widest text-zinc-500 hover:text-zinc-300 transition-colors"
                   >
                     Done
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {drawingStartLine && (
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 pointer-events-none">
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-950/80 border border-cyan-600/50 rounded-sm backdrop-blur-sm pointer-events-auto">
-                  <div className="w-1.5 h-1.5 rounded-full animate-pulse bg-cyan-400" />
-                  <span className="text-[11px] uppercase tracking-widest text-cyan-300">
-                    Click two points to draw start line
-                  </span>
-                  <button onClick={() => setDrawingStartLine(false)} className="ml-2 text-[11px] uppercase tracking-widest text-zinc-500 hover:text-zinc-300 transition-colors">
-                    Cancel
                   </button>
                 </div>
               </div>

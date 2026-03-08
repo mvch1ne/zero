@@ -1,6 +1,6 @@
 // ─── Telemetry Panel ──────────────────────────────────────────────────────────
 // Reads all state from VideoContext and PoseContext — no props needed.
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { useVideoContext } from '../VideoContext';
 import { usePose } from '../PoseContext';
 import type { JointTimeSeries, GroundContactEvent, CoMSeries } from '../useSprintMetrics';
@@ -389,35 +389,24 @@ function CoMTab({
   sprintFinish,
   sprintMode,
   confirmedSprintStart,
-  startLine,
   reactionTime,
   reactionTimeEnabled,
-  flyDistance,
   setReactionTime,
   setReactionTimeEnabled,
-  setFlyDistance,
-  poseFrameW,
-  poseFrameH,
 }: {
   comSeries: CoMSeries;
   com: { frame: number; x: number; y: number }[];
   frame: number;
   fps: number;
   comEvents: { frame: number; comSite: { x: number; y: number } }[];
-  sprintStart: { frame: number } | null;
-  sprintFinish: { frame: number } | null;
-  sprintMode: 'general' | 'static' | 'flying';
+  sprintStart: { frame: number; site: { x: number; y: number } } | null;
+  sprintFinish: { frame: number; site: { x: number; y: number } } | null;
+  sprintMode: 'static' | 'flying';
   confirmedSprintStart: number | null;
-  startLine: { p1: { x: number; y: number }; p2: { x: number; y: number } } | null;
   reactionTime: number;
   reactionTimeEnabled: boolean;
-  flyDistance: number;
   setReactionTime: (t: number) => void;
   setReactionTimeEnabled: (v: boolean) => void;
-  setFlyDistance: (d: number) => void;
-  setConfirmedSprintStart: (f: number | null) => void;
-  poseFrameW: number;
-  poseFrameH: number;
 }) {
   const n = comSeries.x.length;
   const f = Math.min(frame, n - 1);
@@ -426,43 +415,39 @@ function CoMTab({
   const pct = n > 1 ? (f / (n - 1)) * 100 : 0;
   const color = '#a78bfa';
 
-  // Find the frame where CoM crosses a drawn line (normalized coords).
-  const findLineCrossing = useCallback((
-    line: { p1: { x: number; y: number }; p2: { x: number; y: number } } | null,
-  ): number | null => {
-    if (!line || com.length === 0 || poseFrameW === 0 || poseFrameH === 0) return null;
-    const { p1, p2 } = line;
-    const sd = (nx: number, ny: number) =>
-      (p2.x - p1.x) * (ny - p1.y) - (p2.y - p1.y) * (nx - p1.x);
-    let prevSign: number | null = null;
-    for (let fi = 0; fi < com.length; fi++) {
-      const nx = com[fi].x / poseFrameW;
-      const ny = com[fi].y / poseFrameH;
-      const d = sd(nx, ny);
-      if (d === 0) return fi;
-      const sign = d > 0 ? 1 : -1;
-      if (prevSign !== null && sign !== prevSign) return fi;
-      prevSign = sign;
+  /**
+   * Find the fractional frame at which com.x crosses markerX.
+   * Uses linear interpolation between the two surrounding frames so low-fps
+   * videos (where no frame lands exactly on the marker) still work correctly.
+   * Returns null if the CoM never reaches markerX.
+   */
+  const findCrossing = (markerX: number, startFrom = 0): number | null => {
+    for (let fi = Math.max(1, startFrom); fi < com.length; fi++) {
+      const prev = com[fi - 1].x;
+      const curr = com[fi].x;
+      if (prev < markerX && curr >= markerX) {
+        // Linearly interpolate: fraction = (markerX - prev) / (curr - prev)
+        const frac = (markerX - prev) / (curr - prev);
+        return (fi - 1) + frac; // fractional frame index
+      }
+      if (curr === markerX) return fi;
     }
     return null;
-  }, [com, poseFrameW, poseFrameH]);
+  };
 
-  // Shared sparklines + events table for static/general modes.
+  // Shared sparklines + events table.
   const renderSpeedAccel = (
     gateSpeed: number[],
     gateAccel: number[],
     relDisp: (fi: number) => number,
-    startIdx: number,
-    xAtStart: number,
     speedSubLabel: string,
-    hasStart: boolean,
   ) => (
     <>
       <SectionHead label="Displacement (m)" color={color} />
       <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800/60">
         <div className="flex justify-between mb-1">
-          <span className="text-[9px] font-mono text-zinc-500">{hasStart ? 'From start line' : 'From frame 0'}</span>
-          <span className="text-[9px] font-mono tabular-nums" style={{ color: relDisp(f) < 0 ? '#f97316' : color }}>
+          <span className="text-[9px] font-mono text-zinc-500">From start line</span>
+          <span className="text-[9px] font-mono tabular-nums" style={{ color }}>
             {relDisp(f).toFixed(2)} m
           </span>
         </div>
@@ -494,7 +479,7 @@ function CoMTab({
             <table className="w-full text-[8px] font-mono border-collapse">
               <thead>
                 <tr className="border-b border-zinc-200 dark:border-zinc-800">
-                  {['#', 'Frame', 'Speed (m/s)', 'Accel (m/s²)', hasStart ? 'Disp (m)' : 'Pos (m)'].map((h) => (
+                  {['#', 'Frame', 'Speed (m/s)', 'Accel (m/s²)', 'Disp (m)'].map((h) => (
                     <th key={h} className="px-1.5 py-1 text-left text-zinc-400 uppercase tracking-wide font-normal">{h}</th>
                   ))}
                 </tr>
@@ -508,9 +493,7 @@ function CoMTab({
                       <td className="px-1.5 py-0.5 tabular-nums text-zinc-500">{evt.frame}</td>
                       <td className="px-1.5 py-0.5 tabular-nums" style={{ color }}>{(gateSpeed[ef] ?? 0).toFixed(2)}</td>
                       <td className="px-1.5 py-0.5 tabular-nums text-zinc-500">{(gateAccel[ef] ?? 0).toFixed(2)}</td>
-                      <td className="px-1.5 py-0.5 tabular-nums text-zinc-500">
-                        {hasStart ? relDisp(ef).toFixed(2) : (comSeries.x[ef] ?? 0).toFixed(2)}
-                      </td>
+                      <td className="px-1.5 py-0.5 tabular-nums text-zinc-500">{relDisp(ef).toFixed(2)}</td>
                     </tr>
                   );
                 })}
@@ -522,73 +505,50 @@ function CoMTab({
     </>
   );
 
-  // ── GENERAL MODE ──────────────────────────────────────────────────────────────
-  if (sprintMode === 'general') {
-    const startIdx = confirmedSprintStart !== null ? Math.min(confirmedSprintStart, n - 1) : 0;
-    const xAtStart = comSeries.x[startIdx] ?? 0;
-    const relDisp = (fi: number) => (comSeries.x[Math.min(fi, n - 1)] ?? 0) - xAtStart;
-
-    const gateSpeed = (() => {
-      if (confirmedSprintStart === null) return comSeries.speed;
-      const result = new Array(n).fill(0) as number[];
-      for (let fi = startIdx + 1; fi < n; fi++) {
-        const d = (comSeries.x[fi] ?? 0) - xAtStart;
-        const elapsed = (fi - startIdx) / fps;
-        result[fi] = elapsed > 0 ? d / elapsed : 0;
-      }
-      return result;
-    })();
-
-    const gateAccel = (() => {
-      if (confirmedSprintStart === null) return comSeries.accel;
-      const result = new Array(n).fill(0) as number[];
-      for (let fi = 1; fi < n - 1; fi++) result[fi] = (gateSpeed[fi + 1] - gateSpeed[fi - 1]) * fps / 2;
-      if (n > 1) { result[0] = (gateSpeed[1] - gateSpeed[0]) * fps; result[n - 1] = (gateSpeed[n - 1] - gateSpeed[n - 2]) * fps; }
-      return result;
-    })();
-
-    return (
-      <div>
-        {renderSpeedAccel(gateSpeed, gateAccel, relDisp, startIdx, xAtStart,
-          confirmedSprintStart !== null ? 'Disp / elapsed' : 'Instantaneous |vx|',
-          confirmedSprintStart !== null)}
-      </div>
-    );
-  }
-
   // ── STATIC MODE ───────────────────────────────────────────────────────────────
   if (sprintMode === 'static') {
     if (confirmedSprintStart === null) {
       return (
         <div className="px-4 py-8 flex flex-col gap-2 items-center text-center">
           <div className="w-2 h-2 rounded-full bg-amber-400" />
-          <span className="text-[9px] uppercase tracking-widest text-amber-500">Sprint start required</span>
-          <span className="text-[9px] text-zinc-500 font-mono">Seek to the frame when the gun fires, then click the Flag button to confirm</span>
+          <span className="text-[9px] uppercase tracking-widest text-amber-500">First movement required</span>
+          <span className="text-[9px] text-zinc-500 font-mono">Seek to the first movement frame and click the Flag button (or confirm the proposed frame)</span>
         </div>
       );
     }
-    if (!startLine) {
+    if (!sprintStart) {
       return (
         <div className="px-4 py-8 flex flex-col gap-2 items-center text-center">
           <div className="w-2 h-2 rounded-full bg-cyan-400" />
           <span className="text-[9px] uppercase tracking-widest text-cyan-500">Start line required</span>
-          <span className="text-[9px] text-zinc-500 font-mono">Click "Draw Start Line" in the viewport header to mark displacement = 0</span>
+          <span className="text-[9px] text-zinc-500 font-mono">Use Annotate → Start to place the start line post</span>
         </div>
       );
     }
 
     const startIdx = Math.min(confirmedSprintStart, n - 1);
-    const startLineCrossing = findLineCrossing(startLine);
-    const xAtStart = startLineCrossing !== null
-      ? (comSeries.x[Math.min(startLineCrossing, n - 1)] ?? 0)
-      : (comSeries.x[startIdx] ?? 0);
     const RT = reactionTimeEnabled ? reactionTime : 0;
+
+    // Find fractional frame where CoM crosses the start line post (x-coord in pose pixels).
+    // comSeries.x is in metres; com[fi].x is in pose-frame pixels (same space as sprintStart.site.x).
+    const crossingFrac = findCrossing(sprintStart.site.x);
+    const crossingFrame = crossingFrac !== null ? Math.round(crossingFrac) : null;
+
+    // comSeries.x value at the crossing point (interpolated)
+    const xAtCrossing = crossingFrac !== null
+      ? (() => {
+          const lo = Math.floor(crossingFrac);
+          const hi = Math.min(lo + 1, n - 1);
+          const t = crossingFrac - lo;
+          return (comSeries.x[lo] ?? 0) * (1 - t) + (comSeries.x[hi] ?? 0) * t;
+        })()
+      : (comSeries.x[startIdx] ?? 0);
 
     const gateSpeed = (() => {
       const result = new Array(n).fill(0) as number[];
       for (let fi = startIdx + 1; fi < n; fi++) {
-        const d = (comSeries.x[fi] ?? 0) - xAtStart;
-        if (d < 0) continue;
+        const d = (comSeries.x[fi] ?? 0) - xAtCrossing;
+        if (d < 0) continue; // no metric before start line
         const elapsed = (fi - startIdx) / fps + RT;
         result[fi] = elapsed > 0 ? d / elapsed : 0;
       }
@@ -602,7 +562,7 @@ function CoMTab({
       return result;
     })();
 
-    const relDisp = (fi: number) => Math.max(0, (comSeries.x[Math.min(fi, n - 1)] ?? 0) - xAtStart);
+    const relDisp = (fi: number) => Math.max(0, (comSeries.x[Math.min(fi, n - 1)] ?? 0) - xAtCrossing);
 
     return (
       <div>
@@ -628,13 +588,14 @@ function CoMTab({
               <span className="text-[9px] text-zinc-500 font-mono">ms</span>
             </>
           )}
-          {startLineCrossing !== null && (
-            <span className="ml-auto text-[9px] font-mono text-cyan-500/70">Start line @ fr {startLineCrossing}</span>
+          {crossingFrame !== null && (
+            <span className="ml-auto text-[9px] font-mono text-cyan-500/70">
+              Start line crossed @ fr {crossingFrame}
+            </span>
           )}
         </div>
-        {renderSpeedAccel(gateSpeed, gateAccel, relDisp, startIdx, xAtStart,
-          `Disp / (elapsed${reactionTimeEnabled ? ` + ${Math.round(reactionTime * 1000)}ms RT` : ''})`,
-          true)}
+        {renderSpeedAccel(gateSpeed, gateAccel, relDisp,
+          `Disp / (elapsed${reactionTimeEnabled ? ` + ${Math.round(reactionTime * 1000)}ms RT` : ''})`)}
       </div>
     );
   }
@@ -645,8 +606,8 @@ function CoMTab({
       return (
         <div className="px-4 py-8 flex flex-col gap-2 items-center text-center">
           <div className="w-2 h-2 rounded-full bg-cyan-400" />
-          <span className="text-[9px] uppercase tracking-widest text-cyan-500">Fly zone start required</span>
-          <span className="text-[9px] text-zinc-500 font-mono">Use Annotate → Start to mark when the athlete enters the fly zone</span>
+          <span className="text-[9px] uppercase tracking-widest text-cyan-500">Fly zone entry required</span>
+          <span className="text-[9px] text-zinc-500 font-mono">Use Annotate → Start to mark the entry line</span>
         </div>
       );
     }
@@ -654,44 +615,50 @@ function CoMTab({
       return (
         <div className="px-4 py-8 flex flex-col gap-2 items-center text-center">
           <div className="w-2 h-2 rounded-full bg-orange-400" />
-          <span className="text-[9px] uppercase tracking-widest text-orange-500">Fly zone end required</span>
-          <span className="text-[9px] text-zinc-500 font-mono">Use Annotate → Finish to mark when the athlete exits the fly zone</span>
+          <span className="text-[9px] uppercase tracking-widest text-orange-500">Fly zone exit required</span>
+          <span className="text-[9px] text-zinc-500 font-mono">Use Annotate → Finish to mark the exit line</span>
         </div>
       );
     }
 
-    const flyStart = Math.min(sprintStart.frame, n - 1);
-    const flyEnd = Math.min(sprintFinish.frame, n - 1);
-    if (flyEnd <= flyStart) {
+    // Detect when CoM crosses each marker's x-coordinate (pose-frame pixels).
+    const entryFrac = findCrossing(sprintStart.site.x);
+    const exitFrac = entryFrac !== null ? findCrossing(sprintFinish.site.x, Math.floor(entryFrac)) : null;
+
+    if (entryFrac === null || exitFrac === null || exitFrac <= entryFrac) {
       return (
         <div className="px-4 py-8 flex flex-col gap-2 items-center text-center">
-          <span className="text-[9px] uppercase tracking-widest text-zinc-500">Finish must be after Start</span>
+          <div className="w-2 h-2 rounded-full bg-zinc-500" />
+          <span className="text-[9px] uppercase tracking-widest text-zinc-500">
+            {entryFrac === null ? 'CoM never reaches entry marker' : 'CoM never reaches exit marker (or exit before entry)'}
+          </span>
+          <span className="text-[9px] text-zinc-600 font-mono">Check that Start comes before Finish and markers are within the athlete's path</span>
         </div>
       );
     }
 
-    const flyTime = (flyEnd - flyStart) / fps;
+    const flyTime = (exitFrac - entryFrac) / fps;
+
+    // Fly distance = CoM horizontal travel between entry and exit (metres, already calibrated).
+    const interpX = (frac: number) => {
+      const lo = Math.floor(frac);
+      const hi = Math.min(lo + 1, n - 1);
+      const t = frac - lo;
+      return (comSeries.x[lo] ?? 0) * (1 - t) + (comSeries.x[hi] ?? 0) * t;
+    };
+    const flyDistance = Math.abs(interpX(exitFrac) - interpX(entryFrac));
     const flyVelocity = flyTime > 0 ? flyDistance / flyTime : 0;
+
+    const entryFrameDisplay = entryFrac.toFixed(1);
+    const exitFrameDisplay = exitFrac.toFixed(1);
 
     return (
       <div>
-        <div className="px-3 py-1.5 border-b border-zinc-100 dark:border-zinc-800/60 flex items-center gap-2">
-          <span className="text-[8px] uppercase tracking-widest text-zinc-500 shrink-0">Fly distance</span>
-          <input
-            type="number"
-            value={flyDistance}
-            onChange={(e) => setFlyDistance(Math.max(1, Number(e.target.value)))}
-            className="w-12 text-[9px] font-mono bg-zinc-900 border border-zinc-700 rounded-sm px-1 py-0.5 text-orange-300 tabular-nums text-center"
-            min={1} step={5}
-          />
-          <span className="text-[9px] text-zinc-500 font-mono">m</span>
-        </div>
-
         <SectionHead label="Fly zone result" color="#f97316" />
         <div className="grid grid-cols-3 divide-x divide-zinc-100 dark:divide-zinc-800/60 border-b border-zinc-100 dark:border-zinc-800/60">
           {[
             { label: 'Fly time', value: flyTime.toFixed(3), unit: 's' },
-            { label: 'Distance', value: flyDistance.toFixed(1), unit: 'm' },
+            { label: 'Distance', value: flyDistance.toFixed(2), unit: 'm' },
             { label: 'Velocity', value: flyVelocity.toFixed(2), unit: 'm/s' },
           ].map(({ label, value, unit }) => (
             <div key={label} className="px-2 py-2 flex flex-col gap-0.5">
@@ -706,16 +673,16 @@ function CoMTab({
 
         <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800/60 flex flex-col gap-1">
           <div className="flex justify-between">
-            <span className="text-[9px] font-mono text-zinc-500">Zone start (Annotate → Start)</span>
-            <span className="text-[9px] font-mono text-cyan-400">Fr {flyStart} · {(flyStart / fps).toFixed(3)}s</span>
+            <span className="text-[9px] font-mono text-zinc-500">CoM crosses entry (Annotate → Start)</span>
+            <span className="text-[9px] font-mono text-cyan-400">Fr {entryFrameDisplay} · {(entryFrac / fps).toFixed(3)}s</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-[9px] font-mono text-zinc-500">Zone end (Annotate → Finish)</span>
-            <span className="text-[9px] font-mono text-orange-400">Fr {flyEnd} · {(flyEnd / fps).toFixed(3)}s</span>
+            <span className="text-[9px] font-mono text-zinc-500">CoM crosses exit (Annotate → Finish)</span>
+            <span className="text-[9px] font-mono text-orange-400">Fr {exitFrameDisplay} · {(exitFrac / fps).toFixed(3)}s</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-[9px] font-mono text-zinc-500">Frames in zone</span>
-            <span className="text-[9px] font-mono text-zinc-300">{flyEnd - flyStart} fr @ {fps.toFixed(2)} fps</span>
+            <span className="text-[9px] font-mono text-zinc-500">Distance from calibrated CoM</span>
+            <span className="text-[9px] font-mono text-zinc-300">{flyDistance.toFixed(2)} m</span>
           </div>
         </div>
       </div>
@@ -741,10 +708,9 @@ export const Telemetry = () => {
   const {
     currentFrame, fps, calibration, metrics, deleteContact, editContact,
     comEvents, showCoMEvents, sprintStart, sprintFinish,
-    sprintMode, confirmedSprintStart, startLine,
-    reactionTime, reactionTimeEnabled, flyDistance,
-    setReactionTime, setReactionTimeEnabled, setFlyDistance, setConfirmedSprintStart,
-    poseFrameW, poseFrameH,
+    sprintMode, confirmedSprintStart,
+    reactionTime, reactionTimeEnabled,
+    setReactionTime, setReactionTimeEnabled,
   } = useVideoContext();
   const { status } = usePose();
   const [tab, setTab] = useState<Tab>('summary');
@@ -907,16 +873,10 @@ export const Telemetry = () => {
             sprintFinish={sprintFinish}
             sprintMode={sprintMode}
             confirmedSprintStart={confirmedSprintStart}
-            startLine={startLine}
             reactionTime={reactionTime}
             reactionTimeEnabled={reactionTimeEnabled}
-            flyDistance={flyDistance}
             setReactionTime={setReactionTime}
             setReactionTimeEnabled={setReactionTimeEnabled}
-            setFlyDistance={setFlyDistance}
-            setConfirmedSprintStart={setConfirmedSprintStart}
-            poseFrameW={poseFrameW}
-            poseFrameH={poseFrameH}
           />
         )}
 

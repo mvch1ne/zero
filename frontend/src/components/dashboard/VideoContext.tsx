@@ -5,8 +5,8 @@ import {
   useContext,
   useState,
   useCallback,
-  ReactNode,
 } from 'react';
+import type { ReactNode } from 'react';
 import type { CalibrationData } from './viewport/CalibrationAndMeasurements/CalibrationOverlay';
 import type { SprintMetrics } from './useSprintMetrics';
 
@@ -22,8 +22,6 @@ export interface SprintMarkerCtx {
   site: { x: number; y: number };
 }
 
-type TwoPointLine = { p1: { x: number; y: number }; p2: { x: number; y: number } };
-
 interface VideoContextValue {
   currentFrame: number;
   fps: number;
@@ -37,11 +35,11 @@ interface VideoContextValue {
   sprintStart: SprintMarkerCtx | null;
   sprintFinish: SprintMarkerCtx | null;
 
-  // Sprint mode
-  sprintMode: 'general' | 'static' | 'flying';
-  setSprintMode: (m: 'general' | 'static' | 'flying') => void;
+  // Sprint mode: static = block/standing start, flying = fly-zone timing
+  sprintMode: 'static' | 'flying';
+  setSprintMode: (m: 'static' | 'flying') => void;
 
-  // Static mode: confirmed sprint start (user must explicitly confirm)
+  // Static mode: confirmed first-movement frame (user must explicitly confirm)
   confirmedSprintStart: number | null;
   setConfirmedSprintStart: (f: number | null) => void;
 
@@ -49,25 +47,11 @@ interface VideoContextValue {
   proposedSprintStart: number | null;
   setProposedSprintStart: (f: number | null) => void;
 
-  // Start line (normalized coords 0-1, drawn on viewport)
-  startLine: TwoPointLine | null;
-  setStartLine: (l: TwoPointLine | null) => void;
-
   // Reaction time (static mode only)
   reactionTime: number; // seconds, default 0.150
   setReactionTime: (t: number) => void;
   reactionTimeEnabled: boolean;
   setReactionTimeEnabled: (v: boolean) => void;
-
-  // Fly zone distance (default 10m)
-  flyDistance: number;
-  setFlyDistance: (d: number) => void;
-
-  // Pose frame dimensions (needed for start line crossing detection)
-  poseFrameW: number;
-  setPoseFrameW: (w: number) => void;
-  poseFrameH: number;
-  setPoseFrameH: (h: number) => void;
 
   // Setters — called by Viewport
   setCurrentFrame: (f: number) => void;
@@ -99,15 +83,11 @@ export const VideoProvider = ({ children }: { children: ReactNode }) => {
   const [sprintFinish, setSprintFinish] = useState<SprintMarkerCtx | null>(null);
 
   // Sprint mode state
-  const [sprintMode, setSprintMode] = useState<'general' | 'static' | 'flying'>('general');
+  const [sprintMode, setSprintMode] = useState<'static' | 'flying'>('static');
   const [confirmedSprintStart, setConfirmedSprintStart] = useState<number | null>(null);
   const [proposedSprintStart, setProposedSprintStart] = useState<number | null>(null);
-  const [startLine, setStartLine] = useState<TwoPointLine | null>(null);
   const [reactionTime, setReactionTime] = useState(0.150);
   const [reactionTimeEnabled, setReactionTimeEnabled] = useState(true);
-  const [flyDistance, setFlyDistance] = useState(10);
-  const [poseFrameW, setPoseFrameW] = useState(0);
-  const [poseFrameH, setPoseFrameH] = useState(0);
 
   // Wrap in () => fn to prevent React treating stored functions as updaters
   const setDeleteContact = useCallback((fn: ((id: string) => void) | null) => {
@@ -137,18 +117,10 @@ export const VideoProvider = ({ children }: { children: ReactNode }) => {
         setConfirmedSprintStart: useCallback((f) => setConfirmedSprintStart(f), []),
         proposedSprintStart,
         setProposedSprintStart: useCallback((f) => setProposedSprintStart(f), []),
-        startLine,
-        setStartLine: useCallback((l) => setStartLine(l), []),
         reactionTime,
         setReactionTime: useCallback((t) => setReactionTime(t), []),
         reactionTimeEnabled,
         setReactionTimeEnabled: useCallback((v) => setReactionTimeEnabled(v), []),
-        flyDistance,
-        setFlyDistance: useCallback((d) => setFlyDistance(d), []),
-        poseFrameW,
-        setPoseFrameW: useCallback((w) => setPoseFrameW(w), []),
-        poseFrameH,
-        setPoseFrameH: useCallback((h) => setPoseFrameH(h), []),
         setCurrentFrame: useCallback((f) => setCurrentFrame(f), []),
         setFps: useCallback((f) => setFps(f), []),
         setTotalFrames: useCallback((n) => setTotalFrames(n), []),
