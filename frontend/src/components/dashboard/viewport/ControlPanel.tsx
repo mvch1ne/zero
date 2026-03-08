@@ -83,8 +83,6 @@ interface ControlPanelProps {
   onToggleCoMEvents?: () => void;
   onRecordCoMEvent?: () => void;
   onClearCoMEvents?: () => void;
-  /** Distance CoM has travelled since sprint start marker, in metres (null when no marker set). */
-  comDistFromStart?: number | null;
   /** Auto-detected proposed sprint start frame (green dashed marker on scrubber). */
   proposedStartFrame?: number | null;
   disabled?: boolean;
@@ -339,7 +337,6 @@ export function ControlPanel({
   onToggleCoMEvents,
   onRecordCoMEvent,
   onClearCoMEvents,
-  comDistFromStart = null,
   proposedStartFrame = null,
   disabled = false,
 }: ControlPanelProps) {
@@ -743,15 +740,6 @@ export function ControlPanel({
                   </>
                 )}
               </>
-            )}
-
-            {comDistFromStart !== null && (
-              <div className="flex items-center gap-1 px-2 py-0.5 bg-violet-500/10 border border-violet-500/30 rounded-sm">
-                <span className="text-[9px] uppercase tracking-widest text-zinc-500">CoM</span>
-                <span className="text-[10px] font-mono tabular-nums text-violet-400">
-                  {comDistFromStart.toFixed(2)}m
-                </span>
-              </div>
             )}
 
             <div className="ml-auto flex items-center gap-2">

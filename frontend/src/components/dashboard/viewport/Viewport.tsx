@@ -332,19 +332,6 @@ export const Viewport = () => {
     ctxSetMetrics(metricsWithMerged);
   }, [metricsWithMerged, ctxSetMetrics]);
 
-  // Live CoM displacement from sprint start marker to current frame (metres).
-  // Uses net displacement (x series) not cumulative path length, so back-and-forth
-  // noise doesn't inflate the value, and the reading goes negative when the athlete
-  // is behind the start line.
-  const comDistFromStart = useMemo(() => {
-    if (!sprintStart || !metricsWithMerged?.comSeries) return null;
-    const series = metricsWithMerged.comSeries.x;
-    if (!series.length) return null;
-    const sf = Math.min(sprintStart.frame, series.length - 1);
-    const cf = Math.min(currentFrame, series.length - 1);
-    return (series[cf] ?? 0) - (series[sf] ?? 0);
-  }, [sprintStart, metricsWithMerged, currentFrame]);
-
   useEffect(() => { ctxSetComEvents(comEvents); }, [comEvents, ctxSetComEvents]);
   useEffect(() => { ctxSetShowCoMEvents(showCoMEvents); }, [showCoMEvents, ctxSetShowCoMEvents]);
   useEffect(() => { ctxSetSprintStart(sprintStart); }, [sprintStart, ctxSetSprintStart]);
@@ -693,147 +680,120 @@ export const Viewport = () => {
 
   return (
     <div className="viewport-container flex flex-col h-full">
-      <header
-        style={{ height: sectionHeights.header }}
-        className="flex items-center shrink-0 border border-t-0 border-zinc-400 dark:border-zinc-600 bg-white dark:bg-zinc-950 px-3 gap-3"
-      >
-        <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-sky-500" />
-          <span className="text-[11px] uppercase tracking-[0.2em] text-zinc-700 dark:text-zinc-300 font-sans">
-            Viewport
-          </span>
-        </div>
-        <div className="h-4 w-px bg-zinc-400 dark:bg-zinc-600" />
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5">
-            <FilePlayIcon className="h-3 w-3 text-zinc-500 dark:text-zinc-400" />
-            <span className="text-[11px] uppercase tracking-widest text-zinc-700 dark:text-zinc-300 font-sans">
+      <header className="shrink-0 border border-t-0 border-zinc-400 dark:border-zinc-600 bg-white dark:bg-zinc-950">
+        {/* Row 1 — video metadata */}
+        <div className="flex items-center px-3 h-5 gap-3 border-b border-zinc-200 dark:border-zinc-800/60">
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+            <span className="text-[11px] uppercase tracking-[0.2em] text-zinc-700 dark:text-zinc-300 font-sans">
+              Viewport
+            </span>
+          </div>
+          <div className="h-3 w-px bg-zinc-300 dark:bg-zinc-700" />
+          <div className="flex items-center gap-3 text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
+            <span className="flex items-center gap-1">
+              <FilePlayIcon className="h-2.5 w-2.5" />
               {videoMeta ? videoMeta.title : 'No Video'}
             </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <IconDimensions className="h-3 w-3 text-zinc-500 dark:text-zinc-400" />
-            <span className="text-[11px] uppercase tracking-widest text-zinc-700 dark:text-zinc-300 font-sans">
-              {videoMeta ? `${videoMeta.width}×${videoMeta.height}` : '—'}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Clock className="h-3 w-3 text-zinc-500 dark:text-zinc-400" />
-            <span className="text-[11px] uppercase tracking-widest text-zinc-700 dark:text-zinc-300 font-sans">
-              {videoMeta ? `${fps % 1 === 0 ? fps : fps.toFixed(3)} fps` : '—'}
-            </span>
-          </div>
-          {zoomLabel && (
-            <button
-              onClick={resetTransform}
-              className="text-[11px] uppercase tracking-widest text-sky-500 hover:text-sky-400 border border-sky-600/40 px-1.5 py-0.5 rounded-sm transition-colors cursor-pointer"
-            >
-              {zoomLabel} ✕
-            </button>
-          )}
-          {videoMeta && poseEnabled && poseStatus === 'ready' && (
-            <>
-              <div className="h-3 w-px bg-zinc-400 dark:bg-zinc-600" />
-              {/* View mode pill — Video / Skeleton / Body */}
-              <div className="flex items-center border border-zinc-400 dark:border-zinc-600 rounded-sm overflow-hidden">
-                {(['video', 'skeleton', 'body'] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => setViewMode(mode)}
-                    className={`flex items-center gap-1 px-2 h-4 text-[10px] uppercase tracking-widest transition-colors cursor-pointer border-r border-zinc-400 dark:border-zinc-600 last:border-r-0
-                      ${
-                        viewMode === mode
-                          ? 'bg-zinc-800 dark:bg-zinc-200 text-zinc-100 dark:text-zinc-900'
-                          : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
-                      }`}
-                  >
-                    {mode === 'video' ? (
-                      <Layers className="w-2.5 h-2.5" />
-                    ) : (
-                      <Box className="w-2.5 h-2.5" />
-                    )}
-                    <span>{mode}</span>
-                  </button>
-                ))}
-              </div>
-              {/* Annotate contacts */}
-              <button
-                onClick={() =>
-                  setAnnotateMode((m) => (m !== 'off' ? 'off' : 'left'))
-                }
-                className={`flex items-center gap-1 h-4 px-2 text-[10px] uppercase tracking-widest border rounded-sm transition-colors cursor-pointer
-                  ${
-                    annotateMode !== 'off'
-                      ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
-                      : 'border-zinc-400 dark:border-zinc-600 text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
-                  }`}
-              >
-                <Pencil className="w-2.5 h-2.5" />
-                <span>Annotate{(sprintStart || sprintFinish) ? ' ●' : ''}</span>
-              </button>
-              {/* 3D mode indicator */}
-              <button
-                onClick={() => setMode3D((v) => !v)}
-                className={`flex items-center gap-1 h-4 px-2 text-[10px] uppercase tracking-widest border rounded-sm transition-colors cursor-pointer
-                  ${
-                    mode3D
-                      ? 'bg-violet-500/20 border-violet-500/50 text-violet-400'
-                      : 'border-zinc-400 dark:border-zinc-600 text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
-                  }`}
-              >
-                <Box className="w-2.5 h-2.5" />
-                <span>3D</span>
-              </button>
-
-              {/* Sprint mode selector */}
-              <div className="h-3 w-px bg-zinc-400 dark:bg-zinc-600" />
-              <div className="flex items-center border border-zinc-400 dark:border-zinc-600 rounded-sm overflow-hidden">
-                {(['static', 'flying'] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => ctxSetSprintMode(mode)}
-                    className={`px-2 h-4 text-[10px] uppercase tracking-widest transition-colors cursor-pointer border-r border-zinc-400 dark:border-zinc-600 last:border-r-0
-                      ${sprintMode === mode
-                        ? 'bg-zinc-800 dark:bg-zinc-200 text-zinc-100 dark:text-zinc-900'
-                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'}`}
-                  >
-                    {mode === 'static' ? 'Static' : 'Fly'}
-                  </button>
-                ))}
-              </div>
-
-              {sprintMode === 'static' && (
-                <span className="text-[9px] font-mono text-zinc-500 italic">
-                  Use Annotate → Start to mark the start line
+            {videoMeta && (
+              <>
+                <span className="flex items-center gap-1">
+                  <IconDimensions className="h-2.5 w-2.5" />
+                  {videoMeta.width}×{videoMeta.height}
                 </span>
-              )}
-              {sprintMode === 'flying' && (
-                <span className="text-[9px] font-mono text-zinc-500 italic">
-                  Use Annotate → Start/Finish to define fly zone
+                <span className="flex items-center gap-1">
+                  <Clock className="h-2.5 w-2.5" />
+                  {fps % 1 === 0 ? fps : fps.toFixed(3)} fps
                 </span>
-              )}
-            </>
-          )}
-        </div>
-        <div className="ml-auto flex items-center gap-3">
-          {videoMeta && (
-            <button
-              onClick={handleUploadClick}
-              className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors cursor-pointer"
-            >
-              <Upload className="h-3 w-3" />
-              <span className="font-sans">Replace</span>
-            </button>
-          )}
-          <div className="flex gap-1">
-            {[...Array(3)].map((_, i) => (
-              <div
-                key={i}
-                className="w-1 h-1 rounded-full bg-zinc-400 dark:bg-zinc-600"
-              />
-            ))}
+                {zoomLabel && (
+                  <button
+                    onClick={resetTransform}
+                    className="text-sky-500 hover:text-sky-400 border border-sky-600/40 px-1 py-px rounded-sm transition-colors cursor-pointer"
+                  >
+                    {zoomLabel} ✕
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            {videoMeta && (
+              <button
+                onClick={handleUploadClick}
+                className="flex items-center gap-1 text-[10px] uppercase tracking-widest text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors cursor-pointer"
+              >
+                <Upload className="h-2.5 w-2.5" />
+                <span className="font-sans">Replace</span>
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Row 2 — pose controls (only when pose is active) */}
+        {videoMeta && poseEnabled && poseStatus === 'ready' && (
+          <div className="flex items-center px-3 h-5 gap-2">
+            {/* View mode */}
+            <div className="flex items-center border border-zinc-300 dark:border-zinc-700 rounded-sm overflow-hidden">
+              {(['video', 'skeleton', 'body'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  className={`flex items-center gap-1 px-1.5 h-4.5 text-[9px] uppercase tracking-widest transition-colors cursor-pointer border-r border-zinc-300 dark:border-zinc-700 last:border-r-0
+                    ${viewMode === mode
+                      ? 'bg-zinc-800 dark:bg-zinc-200 text-zinc-100 dark:text-zinc-900'
+                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'}`}
+                >
+                  {mode === 'video' ? <Layers className="w-2 h-2" /> : <Box className="w-2 h-2" />}
+                  <span>{mode}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="h-3 w-px bg-zinc-300 dark:bg-zinc-700" />
+
+            {/* Annotate */}
+            <button
+              onClick={() => setAnnotateMode((m) => (m !== 'off' ? 'off' : 'left'))}
+              className={`flex items-center gap-1 h-4.5 px-1.5 text-[9px] uppercase tracking-widest border rounded-sm transition-colors cursor-pointer
+                ${annotateMode !== 'off'
+                  ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
+                  : 'border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'}`}
+            >
+              <Pencil className="w-2 h-2" />
+              <span>Annotate{(sprintStart || sprintFinish) ? ' ●' : ''}</span>
+            </button>
+
+            {/* 3D */}
+            <button
+              onClick={() => setMode3D((v) => !v)}
+              className={`flex items-center gap-1 h-4.5 px-1.5 text-[9px] uppercase tracking-widest border rounded-sm transition-colors cursor-pointer
+                ${mode3D
+                  ? 'bg-violet-500/20 border-violet-500/50 text-violet-400'
+                  : 'border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'}`}
+            >
+              <Box className="w-2 h-2" />
+              <span>3D</span>
+            </button>
+
+            <div className="h-3 w-px bg-zinc-300 dark:bg-zinc-700" />
+
+            {/* Sprint mode */}
+            <div className="flex items-center border border-zinc-300 dark:border-zinc-700 rounded-sm overflow-hidden">
+              {(['static', 'flying'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => ctxSetSprintMode(mode)}
+                  className={`px-1.5 h-4.5 text-[9px] uppercase tracking-widest transition-colors cursor-pointer border-r border-zinc-300 dark:border-zinc-700 last:border-r-0
+                    ${sprintMode === mode
+                      ? 'bg-zinc-800 dark:bg-zinc-200 text-zinc-100 dark:text-zinc-900'
+                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'}`}
+                >
+                  {mode === 'static' ? 'Static' : 'Fly'}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </header>
 
       <main
@@ -1360,7 +1320,6 @@ export const Viewport = () => {
           onToggleCoMEvents={() => setShowCoMEvents((v) => !v)}
           onRecordCoMEvent={handleRecordCoMEvent}
           onClearCoMEvents={() => setComEvents([])}
-          comDistFromStart={comDistFromStart}
           disabled={!videoMeta}
         />
       </div>
