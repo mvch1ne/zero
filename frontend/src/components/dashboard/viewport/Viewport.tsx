@@ -9,7 +9,11 @@ import { MeasurementOverlay } from './CalibrationAndMeasurements/MeasurementOver
 import { MeasurementPanel } from './CalibrationAndMeasurements/MeasurementPanel';
 import type { Measurement } from './CalibrationAndMeasurements/MeasurementOverlay';
 import { PoseOverlay } from './PoseEngine/PoseOverlay';
-import type { ViewMode, ManualContact, SprintMarker } from './PoseEngine/PoseOverlay';
+import type {
+  ViewMode,
+  ManualContact,
+  SprintMarker,
+} from './PoseEngine/PoseOverlay';
 import type { CoMEvent } from '../VideoContext';
 import type { GroundContactEvent } from '../useSprintMetrics';
 import { PosePanel } from './PoseEngine/PosePanel';
@@ -26,7 +30,6 @@ import { useStatus } from './StatusBar/StatusContext';
 import { useVideoContext } from '../VideoContext';
 import { usePose } from '../PoseContext';
 import { useSprintMetrics } from '../useSprintMetrics';
-import { Renderer3D } from './ThreeD/Renderer3D';
 
 interface VideoMeta {
   src: string;
@@ -78,10 +81,14 @@ export const Viewport = () => {
   const [showPosePanel, setShowPosePanel] = useState(false);
   const [showPoseLabels, setShowPoseLabels] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('video');
-  const [mode3D, setMode3D] = useState(false);
+
   const [manualContacts, setManualContacts] = useState<ManualContact[]>([]);
-  const [deletedContactIds, setDeletedContactIds] = useState<Set<string>>(new Set());
-  const [annotateMode, setAnnotateMode] = useState<'off' | 'left' | 'right' | 'start' | 'finish'>('off');
+  const [deletedContactIds, setDeletedContactIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [annotateMode, setAnnotateMode] = useState<
+    'off' | 'left' | 'right' | 'start' | 'finish'
+  >('off');
   const [sprintStart, setSprintStart] = useState<SprintMarker | null>(null);
   const [sprintFinish, setSprintFinish] = useState<SprintMarker | null>(null);
   const [showCoM, setShowCoM] = useState(true);
@@ -90,8 +97,12 @@ export const Viewport = () => {
   const manualContactsRef = useRef(manualContacts);
   const mergedContactsRef = useRef<GroundContactEvent[]>([]);
   const currentFrameRef = useRef(currentFrame);
-  useEffect(() => { manualContactsRef.current = manualContacts; }, [manualContacts]);
-  useEffect(() => { currentFrameRef.current = currentFrame; }, [currentFrame]);
+  useEffect(() => {
+    manualContactsRef.current = manualContacts;
+  }, [manualContacts]);
+  useEffect(() => {
+    currentFrameRef.current = currentFrame;
+  }, [currentFrame]);
   const [landmarkVisibility, setLandmarkVisibility] = useState<
     Record<number, boolean>
   >(buildDefaultVisibility);
@@ -105,7 +116,6 @@ export const Viewport = () => {
     totalFrames: poseTotalFrames,
     poseFps,
     getKeypoints,
-    getKeypoints3D,
     analyseVideo,
     reset: resetPose,
   } = usePoseLandmarker();
@@ -149,7 +159,8 @@ export const Viewport = () => {
     const autoEvents = (metrics?.groundContacts ?? []).filter(
       (c) => !c.id || !deletedContactIds.has(c.id),
     );
-    if (manualContacts.length === 0 && deletedContactIds.size === 0) return autoEvents;
+    if (manualContacts.length === 0 && deletedContactIds.size === 0)
+      return autoEvents;
 
     const contactDurationFrames = Math.max(1, Math.round(0.08 * fps));
     const manualEvents: GroundContactEvent[] = manualContacts.map((m) => {
@@ -178,8 +189,7 @@ export const Viewport = () => {
     const hScale =
       calibration && poseFrameW > 0
         ? (dx: number) =>
-            (Math.abs(dx) / poseFrameW) *
-            calibration.aspectRatio /
+            ((Math.abs(dx) / poseFrameW) * calibration.aspectRatio) /
             calibration.pixelsPerMeter
         : null;
 
@@ -195,7 +205,13 @@ export const Viewport = () => {
           startLineX !== null && hScale
             ? hScale(Math.abs(c.contactSite.x - startLineX))
             : null;
-        return { ...c, contactTime, strideLength: firstStrideLength, strideFrequency: null, flightTimeBefore: 0 };
+        return {
+          ...c,
+          contactTime,
+          strideLength: firstStrideLength,
+          strideFrequency: null,
+          flightTimeBefore: 0,
+        };
       }
       const prev = all[i - 1];
       const dx = Math.abs(c.contactSite.x - prev.contactSite.x);
@@ -210,13 +226,24 @@ export const Viewport = () => {
         flightTimeBefore: Math.max(0, (c.contactFrame - prev.liftFrame) / fps),
       };
     });
-  }, [metrics, manualContacts, deletedContactIds, fps, calibration, poseFrameW, sprintStart]);
+  }, [
+    metrics,
+    manualContacts,
+    deletedContactIds,
+    fps,
+    calibration,
+    poseFrameW,
+    sprintStart,
+  ]);
 
-  useEffect(() => { mergedContactsRef.current = mergedContacts; }, [mergedContacts]);
+  useEffect(() => {
+    mergedContactsRef.current = mergedContacts;
+  }, [mergedContacts]);
 
   const metricsWithMerged = useMemo(() => {
     if (!metrics) return null;
-    if (manualContacts.length === 0 && deletedContactIds.size === 0) return metrics;
+    if (manualContacts.length === 0 && deletedContactIds.size === 0)
+      return metrics;
     const gc = mergedContacts;
     const _avg = (arr: number[]) =>
       arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
@@ -224,13 +251,19 @@ export const Viewport = () => {
       ...metrics,
       groundContacts: gc,
       avgContactTime: _avg(gc.map((c) => c.contactTime)),
-      avgFlightTime: _avg(gc.map((c) => c.flightTimeBefore).filter((t) => t > 0)),
+      avgFlightTime: _avg(
+        gc.map((c) => c.flightTimeBefore).filter((t) => t > 0),
+      ),
       avgStrideLength: (() => {
-        const sl = gc.flatMap((c) => c.strideLength !== null ? [c.strideLength] : []);
+        const sl = gc.flatMap((c) =>
+          c.strideLength !== null ? [c.strideLength] : [],
+        );
         return sl.length ? _avg(sl) : null;
       })(),
       avgStrideFreq: (() => {
-        const sf = gc.flatMap((c) => c.strideFrequency !== null ? [c.strideFrequency] : []);
+        const sf = gc.flatMap((c) =>
+          c.strideFrequency !== null ? [c.strideFrequency] : [],
+        );
         return sf.length ? _avg(sf) : null;
       })(),
     };
@@ -267,28 +300,38 @@ export const Viewport = () => {
   }, []);
 
   // Stable edit handler — modifies a manual contact's frames, or converts auto→manual
-  const handleEditContact = useCallback((id: string, contactFrame: number, liftFrame: number) => {
-    if (manualContactsRef.current.some((m) => m.id === id)) {
-      setManualContacts((prev) =>
-        prev.map((m) => m.id === id ? { ...m, contactFrame, liftFrame } : m),
-      );
-    } else {
-      const existing = mergedContactsRef.current.find((c) => c.id === id);
-      if (!existing) return;
-      setDeletedContactIds((prev) => new Set([...prev, id]));
-      setManualContacts((prev) => [...prev, {
-        id: crypto.randomUUID(),
-        foot: existing.foot,
-        contactFrame,
-        liftFrame,
-        contactSite: existing.contactSite,
-      }]);
-    }
-  }, []);
+  const handleEditContact = useCallback(
+    (id: string, contactFrame: number, liftFrame: number) => {
+      if (manualContactsRef.current.some((m) => m.id === id)) {
+        setManualContacts((prev) =>
+          prev.map((m) =>
+            m.id === id ? { ...m, contactFrame, liftFrame } : m,
+          ),
+        );
+      } else {
+        const existing = mergedContactsRef.current.find((c) => c.id === id);
+        if (!existing) return;
+        setDeletedContactIds((prev) => new Set([...prev, id]));
+        setManualContacts((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            foot: existing.foot,
+            contactFrame,
+            liftFrame,
+            contactSite: existing.contactSite,
+          },
+        ]);
+      }
+    },
+    [],
+  );
 
   // Record current CoM position as a timed event
   const getKeypointsRef = useRef(getKeypoints);
-  useEffect(() => { getKeypointsRef.current = getKeypoints; }, [getKeypoints]);
+  useEffect(() => {
+    getKeypointsRef.current = getKeypoints;
+  }, [getKeypoints]);
 
   const handleRecordCoMEvent = useCallback(() => {
     const frame = currentFrameRef.current;
@@ -326,25 +369,31 @@ export const Viewport = () => {
     ctxSetCal(calibration);
   }, [calibration, ctxSetCal]);
 
-  // When calibration changes, recompute metres for all existing distance measurements.
-  useEffect(() => {
-    if (!calibration) return;
-    setMeasurements((prev) =>
-      prev.map((m) => {
-        if (m.type !== 'distance' || m.normDist == null) return m;
-        const meters = m.normDist / calibration.pixelsPerMeter;
-        return { ...m, meters, label: `${meters.toFixed(2)}m` };
-      }),
-    );
-  }, [calibration]);
+  // Derive calibrated metres from normDist + current calibration without a setState-in-effect.
+  const calibratedMeasurements = useMemo(() => {
+    if (!calibration) return measurements;
+    return measurements.map((m) => {
+      if (m.type !== 'distance' || m.normDist == null) return m;
+      const meters = m.normDist / calibration.pixelsPerMeter;
+      return { ...m, meters, label: `${meters.toFixed(2)}m` };
+    });
+  }, [measurements, calibration]);
   useEffect(() => {
     ctxSetMetrics(metricsWithMerged);
   }, [metricsWithMerged, ctxSetMetrics]);
 
-  useEffect(() => { ctxSetComEvents(comEvents); }, [comEvents, ctxSetComEvents]);
-  useEffect(() => { ctxSetShowCoMEvents(showCoMEvents); }, [showCoMEvents, ctxSetShowCoMEvents]);
-  useEffect(() => { ctxSetSprintStart(sprintStart); }, [sprintStart, ctxSetSprintStart]);
-  useEffect(() => { ctxSetSprintFinish(sprintFinish); }, [sprintFinish, ctxSetSprintFinish]);
+  useEffect(() => {
+    ctxSetComEvents(comEvents);
+  }, [comEvents, ctxSetComEvents]);
+  useEffect(() => {
+    ctxSetShowCoMEvents(showCoMEvents);
+  }, [showCoMEvents, ctxSetShowCoMEvents]);
+  useEffect(() => {
+    ctxSetSprintStart(sprintStart);
+  }, [sprintStart, ctxSetSprintStart]);
+  useEffect(() => {
+    ctxSetSprintFinish(sprintFinish);
+  }, [sprintFinish, ctxSetSprintFinish]);
   // ── Suppress unused setter warnings (passed to Telemetry via context) ──────
   void ctxSetReactionTime;
   void ctxSetReactionTimeEnabled;
@@ -744,13 +793,21 @@ export const Viewport = () => {
               {(['video', 'skeleton', 'body'] as const).map((mode) => (
                 <button
                   key={mode}
-                  onClick={() => { setViewMode(mode); setMode3D(false); }}
+                  onClick={() => {
+                    setViewMode(mode);
+                  }}
                   className={`flex items-center gap-1 px-1.5 h-4.5 text-[9px] uppercase tracking-widest transition-colors cursor-pointer border-r border-zinc-300 dark:border-zinc-700 last:border-r-0
-                    ${viewMode === mode
-                      ? 'bg-zinc-800 dark:bg-zinc-200 text-zinc-100 dark:text-zinc-900'
-                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'}`}
+                    ${
+                      viewMode === mode
+                        ? 'bg-zinc-800 dark:bg-zinc-200 text-zinc-100 dark:text-zinc-900'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
+                    }`}
                 >
-                  {mode === 'video' ? <Layers className="w-2 h-2" /> : <Box className="w-2 h-2" />}
+                  {mode === 'video' ? (
+                    <Layers className="w-2 h-2" />
+                  ) : (
+                    <Box className="w-2 h-2" />
+                  )}
                   <span>{mode}</span>
                 </button>
               ))}
@@ -760,29 +817,19 @@ export const Viewport = () => {
 
             {/* Annotate */}
             <button
-              onClick={() => setAnnotateMode((m) => (m !== 'off' ? 'off' : 'left'))}
+              onClick={() =>
+                setAnnotateMode((m) => (m !== 'off' ? 'off' : 'left'))
+              }
               className={`flex items-center gap-1 h-4.5 px-1.5 text-[9px] uppercase tracking-widest border rounded-sm transition-colors cursor-pointer
-                ${annotateMode !== 'off'
-                  ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
-                  : 'border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'}`}
+                ${
+                  annotateMode !== 'off'
+                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
+                    : 'border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
+                }`}
             >
               <Pencil className="w-2 h-2" />
-              <span>Annotate{(sprintStart || sprintFinish) ? ' ●' : ''}</span>
+              <span>Annotate{sprintStart || sprintFinish ? ' ●' : ''}</span>
             </button>
-
-            {/* 3D */}
-            <button
-              onClick={() => setMode3D((v) => !v)}
-              className={`flex items-center gap-1 h-4.5 px-1.5 text-[9px] uppercase tracking-widest border rounded-sm transition-colors cursor-pointer
-                ${mode3D
-                  ? 'bg-violet-500/20 border-violet-500/50 text-violet-400'
-                  : 'border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'}`}
-            >
-              <Box className="w-2 h-2" />
-              <span>3D</span>
-            </button>
-
-            <div className="h-3 w-px bg-zinc-300 dark:bg-zinc-700" />
 
             {/* Sprint mode */}
             <div className="flex items-center border border-zinc-300 dark:border-zinc-700 rounded-sm overflow-hidden">
@@ -791,11 +838,13 @@ export const Viewport = () => {
                   key={mode}
                   onClick={() => ctxSetSprintMode(mode)}
                   className={`px-1.5 h-4.5 text-[9px] uppercase tracking-widest transition-colors cursor-pointer border-r border-zinc-300 dark:border-zinc-700 last:border-r-0
-                    ${sprintMode === mode
-                      ? 'bg-zinc-800 dark:bg-zinc-200 text-zinc-100 dark:text-zinc-900'
-                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'}`}
+                    ${
+                      sprintMode === mode
+                        ? 'bg-zinc-800 dark:bg-zinc-200 text-zinc-100 dark:text-zinc-900'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
+                    }`}
                 >
-                  {mode === 'static' ? 'Static' : 'Fly'}
+                  {mode === 'static' ? 'Static Start' : 'Flying Start'}
                 </button>
               ))}
             </div>
@@ -808,13 +857,15 @@ export const Viewport = () => {
         className="flex-1 border border-zinc-400 dark:border-zinc-600 overflow-hidden relative bg-black select-none"
         style={{
           cursor:
-            mode3D
-              ? 'default'
-              : calibrating || measuringDistance || measuringAngle || drawingCrop || annotateMode !== 'off'
-                ? 'crosshair'
-                : transform.scale > 1
-                  ? 'grab'
-                  : 'default',
+            calibrating ||
+            measuringDistance ||
+            measuringAngle ||
+            drawingCrop ||
+            annotateMode !== 'off'
+              ? 'crosshair'
+              : transform.scale > 1
+                ? 'grab'
+                : 'default',
           touchAction: 'none',
         }}
         onPointerDown={onPointerDown}
@@ -824,7 +875,9 @@ export const Viewport = () => {
       >
         {videoMeta ? (
           <>
-            {viewMode !== 'video' && <div className="absolute inset-0 bg-zinc-950" />}
+            {viewMode !== 'video' && (
+              <div className="absolute inset-0 bg-zinc-950" />
+            )}
             <div
               className="absolute inset-0"
               style={{
@@ -876,10 +929,14 @@ export const Viewport = () => {
                   groundContacts={mergedContacts}
                   annotateMode={annotateMode}
                   currentFrame={currentFrame}
-                  onAddContact={(c) => setManualContacts((prev) => [...prev, c])}
+                  onAddContact={(c) =>
+                    setManualContacts((prev) => [...prev, c])
+                  }
                   onMoveContact={(id, site) =>
                     setManualContacts((prev) =>
-                      prev.map((m) => (m.id === id ? { ...m, contactSite: site } : m)),
+                      prev.map((m) =>
+                        m.id === id ? { ...m, contactSite: site } : m,
+                      ),
                     )
                   }
                   onDeleteContact={handleDeleteContact}
@@ -899,13 +956,6 @@ export const Viewport = () => {
                 />
               )}
             </div>
-
-            {mode3D && poseStatus === 'ready' && (
-              <Renderer3D
-                getKeypoints3D={getKeypoints3D}
-                currentFrame={currentFrame}
-              />
-            )}
 
             {videoProbing && exportStatus === 'idle' && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -965,7 +1015,7 @@ export const Viewport = () => {
                 mode={measuringAngle ? 'angle' : 'distance'}
                 transform={transform}
                 calibration={calibration}
-                measurements={measurements}
+                measurements={calibratedMeasurements}
                 onMeasurementAdded={(m) => {
                   setMeasurements((prev) => [...prev, m]);
                   setShowMeasurementPanel(true);
@@ -1007,10 +1057,22 @@ export const Viewport = () => {
                   <div className="flex items-center border border-zinc-600 rounded-sm overflow-hidden">
                     {(
                       [
-                        { key: 'left', label: 'Left', color: 'text-emerald-400' },
-                        { key: 'right', label: 'Right', color: 'text-cyan-400' },
+                        {
+                          key: 'left',
+                          label: 'Left',
+                          color: 'text-emerald-400',
+                        },
+                        {
+                          key: 'right',
+                          label: 'Right',
+                          color: 'text-cyan-400',
+                        },
                         { key: 'start', label: 'Start', color: 'text-sky-400' },
-                        { key: 'finish', label: 'Finish', color: 'text-orange-400' },
+                        {
+                          key: 'finish',
+                          label: 'Finish',
+                          color: 'text-orange-400',
+                        },
                       ] as const
                     ).map(({ key, label, color }) => (
                       <button
@@ -1033,7 +1095,10 @@ export const Viewport = () => {
                   )}
                   {(sprintStart || sprintFinish) && (
                     <button
-                      onClick={() => { setSprintStart(null); setSprintFinish(null); }}
+                      onClick={() => {
+                        setSprintStart(null);
+                        setSprintFinish(null);
+                      }}
                       className="text-[11px] uppercase tracking-widest text-red-500 hover:text-red-400 transition-colors"
                     >
                       Clear markers
@@ -1197,7 +1262,7 @@ export const Viewport = () => {
                 ref={stopWheel}
               >
                 <MeasurementPanel
-                  measurements={measurements}
+                  measurements={calibratedMeasurements}
                   onDelete={(id) =>
                     setMeasurements((prev) => prev.filter((m) => m.id !== id))
                   }

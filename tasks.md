@@ -4,12 +4,13 @@ TODO
 
 ## Next Steps
 
-- Show CoM in 3D view (allow toggling)
 - Bring back the distance from CoM to ground contact metric.
+- Redesign the body character's appearance to look cooler.
 - Button to turn off all pose landmarks doesn't work. Remove it. But let's add a new button somewhere when video mode is selected to temporarily hide the pose overlay skeleton. When I toggle that, bring them back on.
 - When using the export option, let the draw box disappear after I close the panel.
 - Work towards body view looking more like Three.js human model.
 - When done, create desktop version (Electron.js?) so that I don't have to upload anything. Find a way to run the application on the desktop and run the Python server on the laptop as well. Will have to figure out how to manage both seamlessly (web sockets)?
+- Rethink the angle measurements (relative to vertical or horizontal, different for different places?)
 
 ## Backend
 
