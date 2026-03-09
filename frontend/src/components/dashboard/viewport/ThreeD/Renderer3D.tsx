@@ -60,6 +60,25 @@ function normalize(raw: Keypoint3D[]): Vec3[] | null {
   return pts;
 }
 
+// ── Lathe profile builder ─────────────────────────────────────────────────────
+// Y spans -0.5 → +0.5 to match CylinderGeometry's centred coordinate space.
+// X is normalised radius (1.0 = full segment radius r after scale).
+function lathGeo(profile: [number, number][], segs = 14) {
+  return new THREE.LatheGeometry(
+    profile.map(([x, y]) => new THREE.Vector2(x, y)), segs,
+  );
+}
+
+// Muscle-shaped lathe profiles for each limb type (bottom = distal end):
+//   thigh  : hip (top, wide) → knee (bottom, narrow)
+//   shin   : knee (top) → calf bulge → ankle (bottom, narrow)
+//   upperArm: shoulder (top) → bicep peak → elbow (bottom)
+//   foreArm : elbow (top) → muscle → wrist (bottom, narrow)
+const THIGH_GEO  = lathGeo([[0.78,-0.5],[0.88,-0.15],[1.0,0.1],[1.0,0.5]]);
+const SHIN_GEO   = lathGeo([[0.60,-0.5],[0.85,-0.25],[1.0,0.0],[0.84,0.3],[0.78,0.5]]);
+const UARM_GEO   = lathGeo([[0.78,-0.5],[1.0,-0.15],[1.0,0.1],[0.85,0.5]]);
+const FARM_GEO   = lathGeo([[0.58,-0.5],[0.90,-0.2],[1.0,0.05],[0.80,0.5]]);
+
 // ── Geometry helpers ──────────────────────────────────────────────────────────
 const _up  = new THREE.Vector3(0, 1, 0);
 const _dir = new THREE.Vector3();
@@ -173,16 +192,16 @@ function ProceduralBody({ getKeypoints3D, currentFrame }: Props) {
     m.rClav  = makeCyl(cyl, COL_CORE);   group.add(m.rClav);
     m.lPelv  = makeCyl(cyl, COL_CORE);   group.add(m.lPelv);
     m.rPelv  = makeCyl(cyl, COL_CORE);   group.add(m.rPelv);
-    // Arms
-    m.lUArm  = makeCyl(cyl, COL_LIMB);   group.add(m.lUArm);
-    m.lFArm  = makeCyl(cyl, COL_DISTAL); group.add(m.lFArm);
-    m.rUArm  = makeCyl(cyl, COL_LIMB);   group.add(m.rUArm);
-    m.rFArm  = makeCyl(cyl, COL_DISTAL); group.add(m.rFArm);
-    // Legs
-    m.lThigh = makeCyl(cyl, COL_LIMB);   group.add(m.lThigh);
-    m.lShin  = makeCyl(cyl, COL_DISTAL); group.add(m.lShin);
-    m.rThigh = makeCyl(cyl, COL_LIMB);   group.add(m.rThigh);
-    m.rShin  = makeCyl(cyl, COL_DISTAL); group.add(m.rShin);
+    // Arms — lathe for organic muscle shape
+    m.lUArm  = makeCyl(UARM_GEO, COL_LIMB);   group.add(m.lUArm);
+    m.lFArm  = makeCyl(FARM_GEO, COL_DISTAL); group.add(m.lFArm);
+    m.rUArm  = makeCyl(UARM_GEO, COL_LIMB);   group.add(m.rUArm);
+    m.rFArm  = makeCyl(FARM_GEO, COL_DISTAL); group.add(m.rFArm);
+    // Legs — lathe for organic muscle shape
+    m.lThigh = makeCyl(THIGH_GEO, COL_LIMB);   group.add(m.lThigh);
+    m.lShin  = makeCyl(SHIN_GEO,  COL_DISTAL); group.add(m.lShin);
+    m.rThigh = makeCyl(THIGH_GEO, COL_LIMB);   group.add(m.rThigh);
+    m.rShin  = makeCyl(SHIN_GEO,  COL_DISTAL); group.add(m.rShin);
     // Neck + head
     m.neck   = makeCyl(cyl, COL_NECK);   group.add(m.neck);
     m.head   = makeSph(sph, COL_HEAD);   group.add(m.head);
@@ -275,7 +294,11 @@ function ProceduralBody({ getKeypoints3D, currentFrame }: Props) {
     // Neck + head
     if (m.neck && m.head && shMid && nose) {
       orientCylinder(m.neck, shMid, nose, 0.028);
-      placeSphere(m.head, [nose[0], nose[1] + 0.07, nose[2]], 0.13);
+      // Oval head: taller than wide
+      const hc: Vec3 = [nose[0], nose[1] + 0.09, nose[2]];
+      m.head.position.set(...hc);
+      m.head.scale.set(0.11, 0.14, 0.11);
+      m.head.visible = true;
     } else {
       if (m.neck) m.neck.visible = false;
       if (m.head) m.head.visible = false;
