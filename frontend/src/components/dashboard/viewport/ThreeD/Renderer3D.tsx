@@ -52,6 +52,11 @@ function normalize(raw: Keypoint3D[]): Vec3[] | null {
     rp[2] = zMid - MIN_HALF_SEP;
   }
 
+  // Heels and toes follow their ankle's z so the foot segment stays coplanar.
+  const lAnkle = pts[15], rAnkle = pts[16];
+  if (lAnkle) { if (pts[17]) pts[17][2] = lAnkle[2]; if (pts[19]) pts[19][2] = lAnkle[2]; }
+  if (rAnkle) { if (pts[18]) pts[18][2] = rAnkle[2]; if (pts[20]) pts[20][2] = rAnkle[2]; }
+
   return pts;
 }
 
@@ -141,6 +146,11 @@ function ProceduralBody({ getKeypoints3D, currentFrame }: Props) {
     jRKn:    null as THREE.Mesh | null,
     jLAn:    null as THREE.Mesh | null, // L ankle
     jRAn:    null as THREE.Mesh | null,
+    // Feet
+    lFoot:   null as THREE.Mesh | null,
+    rFoot:   null as THREE.Mesh | null,
+    jLToe:   null as THREE.Mesh | null,
+    jRToe:   null as THREE.Mesh | null,
   });
 
   useEffect(() => {
@@ -185,6 +195,11 @@ function ProceduralBody({ getKeypoints3D, currentFrame }: Props) {
     m.jRKn   = makeSph(sph, 0x4ade80); group.add(m.jRKn);
     m.jLAn   = makeSph(sph, 0x86efac); group.add(m.jLAn);
     m.jRAn   = makeSph(sph, 0x86efac); group.add(m.jRAn);
+    // Feet (ankle → toe tip)
+    m.lFoot  = makeCyl(cyl, 0xa3e635); group.add(m.lFoot);
+    m.rFoot  = makeCyl(cyl, 0xa3e635); group.add(m.rFoot);
+    m.jLToe  = makeSph(sph, 0xa3e635); group.add(m.jLToe);
+    m.jRToe  = makeSph(sph, 0xa3e635); group.add(m.jRToe);
 
     return () => { cyl.dispose(); sph.dispose(); group.clear(); };
   }, []);
@@ -210,6 +225,7 @@ function ProceduralBody({ getKeypoints3D, currentFrame }: Props) {
     const lHip = pts[11], rHip = pts[12];
     const lKn  = pts[13], rKn  = pts[14];
     const lAn  = pts[15], rAn  = pts[16];
+    const lToe = pts[19], rToe = pts[20];
     const nose = pts[0];
 
     const shMid  = lSh  && rSh  ? midpoint(lSh,  rSh)  : null;
@@ -274,6 +290,13 @@ function ProceduralBody({ getKeypoints3D, currentFrame }: Props) {
     if (rKn  && m.jRKn)  placeSphere(m.jRKn,  rKn,  0.044);
     if (lAn  && m.jLAn)  placeSphere(m.jLAn,  lAn,  0.034);
     if (rAn  && m.jRAn)  placeSphere(m.jRAn,  rAn,  0.034);
+    // Feet
+    if (m.lFoot && lAn && lToe) orientCylinder(m.lFoot, lAn, lToe, 0.028);
+    else if (m.lFoot) m.lFoot.visible = false;
+    if (m.rFoot && rAn && rToe) orientCylinder(m.rFoot, rAn, rToe, 0.028);
+    else if (m.rFoot) m.rFoot.visible = false;
+    if (lToe && m.jLToe) placeSphere(m.jLToe, lToe, 0.022);
+    if (rToe && m.jRToe) placeSphere(m.jRToe, rToe, 0.022);
   });
 
   return <group ref={groupRef} />;
@@ -289,6 +312,7 @@ function groundY(pts: Vec3[]): number {
 // Fixed orthographic camera — 45° between front and side, eye-level with model
 const ISO_POS: [number, number, number] = [1.8, 0.25, 1.8];
 const ISO_TARGET: [number, number, number] = [0, 0.05, 0];
+const ISO_ZOOM = 200;
 
 // ── Export ────────────────────────────────────────────────────────────────────
 export function Renderer3D({ getKeypoints3D, currentFrame }: Props) {
@@ -312,7 +336,7 @@ export function Renderer3D({ getKeypoints3D, currentFrame }: Props) {
       <Canvas
         key={resetKey}
         orthographic
-        camera={{ position: ISO_POS, zoom: 280, up: [0, 1, 0] }}
+        camera={{ position: ISO_POS, zoom: ISO_ZOOM, up: [0, 1, 0] }}
         gl={{ antialias: true }}
         style={{ background: '#09090b' }}
       >
