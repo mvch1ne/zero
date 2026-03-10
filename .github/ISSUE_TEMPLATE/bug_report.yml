@@ -1,0 +1,73 @@
+name: Bug Report
+description: Something is broken or behaving unexpectedly
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. The more detail you include, the faster it can be fixed.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug. What did you expect, and what did you see instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Walk through exactly what you did to trigger the bug.
+      placeholder: |
+        1. Uploaded a video (format: ...)
+        2. Drew a calibration line
+        3. Clicked ...
+        4. Saw ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the app is affected?
+      options:
+        - Video upload / inference
+        - Calibration
+        - Ground contact detection
+        - Joint angles / telemetry
+        - Center of mass
+        - Trim and crop
+        - Sprint timing / markers
+        - Pose overlay
+        - 3D view
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Error messages
+      description: Paste any errors from the browser console (F12 → Console) or the backend terminal.
+      render: shell
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and OS
+      placeholder: e.g. Chrome 125 on Windows 11, Safari 17 on macOS 14
+
+  - type: input
+    id: video
+    attributes:
+      label: Video details (if relevant)
+      description: Format, resolution, FPS, and duration of the video that triggered the bug.
+      placeholder: e.g. MP4, 1920×1080, 120fps, 8 seconds
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots, screen recordings, or additional context.

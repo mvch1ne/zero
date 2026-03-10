@@ -1,0 +1,57 @@
+name: Feature Request
+description: Suggest an improvement or new capability
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feature requests are welcome. The most useful ones describe a real problem you ran into, rather than jumping straight to a proposed solution — but both are fine.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the situation that motivated this request. What were you trying to do, and what made it difficult or impossible?
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: What would you like to see?
+      description: Describe the feature or improvement you have in mind. Be as specific as you can.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area does this relate to?
+      options:
+        - Video / playback
+        - Pose estimation / accuracy
+        - Calibration / measurements
+        - Ground contact detection
+        - Joint angles / telemetry
+        - Center of mass
+        - Sprint timing
+        - Export / reporting
+        - Performance / speed
+        - UI / usability
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Who would benefit from this? Is there a reference from the biomechanics or sports science literature that supports it? Any mockups or examples?
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Are you willing to contribute this?
+      options:
+        - label: I would like to implement this myself and open a pull request
