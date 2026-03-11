@@ -15,6 +15,22 @@ The Viewport is the central orchestrator of the application. It manages video pl
 - **Metric publication** — calls `useSprintMetrics` and writes the result into `VideoContext`
 - **Export** — passes video + overlay data to FFmpeg.js for trimmed/cropped MP4 export
 
+## View Modes
+
+The toolbar exposes seven view modes that control how the pose is rendered. The active mode is stored in `viewMode` state and passed as a prop to `PoseOverlay`.
+
+| Mode | Label | Background | Style |
+|---|---|---|---|
+| `video` | VIDEO | Video | Skeleton line + dot overlay over the video |
+| `skeleton` | SKELETON | Dark | Region-coloured bone lines and joint dots |
+| `body` | BODY | Dark | Filled ellipses per segment — blue body, green left, cyan right |
+| `neon` | NEON | Dark | Two-pass `ctx.shadowBlur` glow — cyan body, lime left, magenta right |
+| `grad` | GRAD | Dark | Perpendicular `createLinearGradient` per segment for a cylindrical 3D sheen |
+| `analytics` | ANALYTICS | **Video** | Thick coloured lines over the video — blue left, red right, white torso |
+| `bio` | BIO | Dark | Bold filled ellipses (1.15× scale, 2.5 px stroke) — amber left, sky right, near-white body |
+
+`analytics` is the only mode that keeps the video visible underneath and does not set `skeletonOnly` on the `VideoLayer`. All other non-video modes render on a `bg-zinc-950` background.
+
 ## Overlay Stack
 
 Overlays are absolutely positioned canvases stacked on top of the video:
@@ -23,7 +39,7 @@ Overlays are absolutely positioned canvases stacked on top of the video:
 ┌─────────────────────────────┐
 │  <video>                    │  base layer — playback
 ├─────────────────────────────┤
-│  PoseOverlay (canvas)       │  skeleton + keypoints
+│  PoseOverlay (canvas)       │  pose rendering (mode-dependent)
 ├─────────────────────────────┤
 │  CalibrationOverlay (canvas)│  reference line drawing
 ├─────────────────────────────┤
